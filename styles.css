@@ -1,82 +1,88 @@
 :root {
     --black: #000000;
     --white: #ffffff;
-    --gray: #f4f4f4;
+    --border: #eeeeee;
     --radius: 3px;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
-body { background: var(--white); color: var(--black); }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background: var(--white); color: var(--black); overflow-x: hidden; }
 
-/* Nav */
-.navbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 25px 5%; border-bottom: 1px solid #eee;
-    position: sticky; top: 0; background: #fff; z-index: 100;
+/* Barra Superior */
+.top-bar {
+    height: 70px; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 5%; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    background: #fff; z-index: 1000;
 }
-.logo { font-weight: 900; letter-spacing: 5px; font-size: 1.2rem; }
-.nav-right { display: flex; gap: 20px; font-size: 0.75rem; font-weight: bold; }
-
-/* Dashboard */
-.dashboard { background: var(--gray); padding: 30px 5%; border-bottom: 2px solid #000; }
-.dash-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 15px; }
-.dash-form input, .dash-form select { padding: 12px; border: 1px solid #ddd; border-radius: var(--radius); }
+.logo { font-weight: 900; letter-spacing: 5px; font-size: 1.3rem; }
+.header-right { display: flex; align-items: center; gap: 20px; }
+.device-id { font-size: 0.6rem; color: #aaa; font-family: monospace; }
+.cart-btn { font-weight: bold; cursor: pointer; font-size: 0.8rem; border-left: 1px solid #eee; padding-left: 20px; }
 
 /* Layout */
-.layout { display: flex; padding: 40px 5%; gap: 40px; }
-.sidebar { width: 160px; display: flex; flex-direction: column; gap: 10px; }
-.side-title { font-size: 0.65rem; letter-spacing: 2px; color: #999; margin-bottom: 10px; }
-.sidebar button { background: none; border: none; text-align: left; cursor: pointer; font-size: 0.9rem; color: #555; }
-.sidebar button:hover { color: #000; font-weight: bold; }
+.layout { display: flex; padding: 30px 5%; gap: 30px; min-height: 90vh; }
+.sidebar { width: 220px; flex-shrink: 0; }
+.section-title { font-size: 0.65rem; letter-spacing: 2px; color: #bbb; margin-bottom: 15px; font-weight: bold; }
 
-/* Grid Responsive */
-.store { flex: 1; }
+/* Admin Sidebar */
+.admin-side { border-right: 1px solid #eee; padding-right: 20px; }
+.admin-form input, .admin-form select, .admin-form textarea {
+    width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #eee; 
+    border-radius: var(--radius); font-size: 0.8rem;
+}
+.admin-form textarea { height: 80px; resize: none; }
+
+/* Filtros */
+.filters-side button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    padding: 10px 0; cursor: pointer; font-weight: 600; color: #666; transition: 0.2s;
+}
+.filters-side button:hover { color: #000; padding-left: 5px; }
+
+/* Grid de Tarjetas Alargadas */
+.main-content { flex: 1; }
 .grid { 
     display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-    gap: 30px; 
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+    gap: 25px; 
 }
 
-/* LA TARJETA URANIUM */
+/* LA TARJETA (2:3 Aspect Ratio) */
 .card {
-    border: 1px solid #eee;
-    border-radius: var(--radius);
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    transition: 0.2s;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px; cursor: pointer; transition: 0.3s;
 }
-.card:hover { border-color: #000; }
+.card:hover { border-color: #000; transform: translateY(-5px); }
 
-.card img {
-    width: 100%;
-    aspect-ratio: 2 / 3; /* ALARGADA */
-    object-fit: cover;
-    border-radius: 2px;
-    margin-bottom: 15px;
-    background: var(--gray);
+.card-img-box {
+    width: 100%; aspect-ratio: 2 / 3; background: #fafafa;
+    overflow: hidden; border-radius: 2px; margin-bottom: 12px;
 }
+.card img { width: 100%; height: 100%; object-fit: cover; }
 
-.card h4 { font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
-.card .price { font-size: 0.95rem; font-weight: 300; margin-bottom: 15px; }
+.card h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+.card p { font-size: 0.9rem; font-weight: bold; color: #333; }
 
 /* Botones */
-.btn-black { background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; font-size: 0.7rem; font-weight: bold; border-radius: var(--radius); letter-spacing: 1px; }
-.btn-ghost { background: none; border: 1px solid #000; padding: 8px 15px; cursor: pointer; font-size: 0.7rem; border-radius: var(--radius); font-weight: bold; }
+.btn-black { background: #000; color: #fff; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: var(--radius); font-size: 0.75rem; }
+.btn-ghost { background: none; border: 1px solid #000; padding: 10px; cursor: pointer; font-weight: bold; border-radius: var(--radius); }
+.btn-nequi { background: #60269e; color: #fff; border: none; padding: 15px; font-weight: 900; width: 100%; border-radius: var(--radius); cursor: pointer; }
 
 /* Modales */
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 200; justify-content: center; align-items: center; }
-.modal-box { background: #fff; border: 1px solid #000; padding: 30px; width: 90%; max-width: 350px; text-align: center; }
-.modal-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; }
-.modal-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.modal {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,255,255,0.95); z-index: 2000; justify-content: center; align-items: center;
+}
+.modal-box { width: 90%; max-width: 400px; padding: 30px; border: 1px solid #000; text-align: center; background: #fff; }
+.detail-box img { width: 100px; height: 100px; object-fit: contain; margin-bottom: 20px; }
+.modal-footer-stack { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.modal-footer-stack input { padding: 12px; border: 1px solid #ddd; text-align: center; border-radius: var(--radius); }
 
-.cart-list { text-align: left; margin: 15px 0; max-height: 150px; overflow-y: auto; }
-.cart-item { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid #f4f4f4; }
-.total { font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 10px; }
-
-/* Mobile */
-@media (max-width: 768px) {
-    .layout { flex-direction: column; }
-    .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid #eee; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+/* Responsive */
+@media (max-width: 900px) {
+    .layout { flex-direction: column; padding: 20px 5%; }
+    .sidebar { width: 100%; border: none; padding: 0; }
+    .filters-side { display: flex; gap: 15px; overflow-x: auto; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .filters-side button { width: auto; white-space: nowrap; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
             }
