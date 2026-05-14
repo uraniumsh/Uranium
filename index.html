@@ -3,86 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>URANIUM</title>
+    <title>URANIUM STORE</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 </head>
 <body>
 
-    <nav class="navbar">
+    <header class="top-bar">
         <div class="logo">URANIUM</div>
-        <div class="nav-right">
-            <button id="admin-login-btn" class="btn-ghost">ADMIN</button>
-            <div class="cart-trigger" id="cart-open">CARRITO (<span id="cart-count">0</span>)</div>
+        <div class="header-right">
+            <div id="device-tag" class="device-id">ID: Cargando...</div>
+            <div class="cart-btn" onclick="openCart()">
+                CARRITO (<span id="cart-qty">0</span>)
+            </div>
         </div>
-    </nav>
+    </header>
 
-    <section id="admin-dash" class="dashboard" style="display: none;">
-        <div class="dash-container">
-            <h3>PANEL DE CONTROL</h3>
-            <div class="dash-form">
-                <input type="text" id="p-name" placeholder="Nombre del servicio">
-                <input type="number" id="p-price" placeholder="Precio ($)">
-                <input type="text" id="p-img" placeholder="URL de imagen (Link)">
+    <div class="layout">
+        <aside id="admin-sidebar" class="sidebar admin-side" style="display: none;">
+            <p class="section-title">DASHBOARD ADMIN</p>
+            <div class="admin-form">
+                <input type="text" id="p-name" placeholder="Nombre (Ej: Netflix)">
+                <input type="number" id="p-price" placeholder="Precio Venta (PV)">
+                <input type="text" id="p-img" placeholder="Link Logo/Imagen">
+                <textarea id="p-desc" placeholder="Descripción detallada"></textarea>
                 <select id="p-cat">
                     <option value="Streaming">Streaming</option>
                     <option value="Combos">Combos</option>
-                    <option value="Ofertas">Ofertas</option>
                 </select>
-                <button id="btn-publish" class="btn-black">PUBLICAR</button>
-                <button id="btn-logout" class="btn-ghost">CERRAR SESIÓN</button>
+                <button onclick="uploadProduct()" class="btn-black">PUBLICAR PRODUCTO</button>
             </div>
-        </div>
-    </section>
+        </aside>
 
-    <div class="layout">
-        <aside class="sidebar">
-            <p class="side-title">PLATAFORMAS</p>
+        <aside class="sidebar filters-side">
+            <p class="section-title">CATEGORÍAS</p>
             <button onclick="render('all')">TODO</button>
             <button onclick="render('Streaming')">STREAMING</button>
             <button onclick="render('Combos')">COMBOS</button>
-            <button onclick="render('Ofertas')">OFERTAS</button>
         </aside>
 
-        <main class="store">
-            <div id="grid" class="grid"></div>
+        <main class="main-content">
+            <div id="products-grid" class="grid"></div>
         </main>
+    </div>
+
+    <div id="modal-detail" class="modal">
+        <div class="modal-box detail-box">
+            <div id="detail-content"></div>
+            <div class="modal-footer">
+                <button onclick="closeModals()" class="btn-ghost">VOLVER</button>
+                <button id="add-to-cart-btn" class="btn-black">AÑADIR AL CARRITO</button>
+            </div>
+        </div>
     </div>
 
     <div id="modal-cart" class="modal">
         <div class="modal-box">
-            <h3>TU PEDIDO</h3>
-            <div id="cart-list" class="cart-list"></div>
-            <p class="total">Total: $<span id="total-val">0</span></p>
-            <div class="modal-btns">
-                <button onclick="closeModal('modal-cart')" class="btn-ghost">VOLVER</button>
-                <button id="pay-nequi" class="btn-black">PAGAR CON NEQUI</button>
+            <h3>MI PEDIDO</h3>
+            <div id="cart-items-list" class="cart-list"></div>
+            <p class="cart-total">TOTAL: $<span id="total-val">0</span></p>
+            <div class="modal-footer-stack">
+                <input type="text" id="client-name" placeholder="Tu Nombre Completo">
+                <button onclick="payNequi()" class="btn-nequi">PAGAR CON NEQUI</button>
+                <button onclick="closeModals()" class="btn-ghost">SEGUIR VIENDO</button>
             </div>
-        </div>
-    </div>
-
-    <div id="modal-nequi" class="modal">
-        <div class="modal-box">
-            <h3>PAGO NEQUI</h3>
-            <p>Transfiere al número:</p>
-            <h2 class="nequi-num">3043344577</h2>
-            <p class="nequi-info">Al confirmar, notificaremos tu pago por Telegram.</p>
-            <div class="modal-btns">
-                <button onclick="closeModal('modal-nequi')" class="btn-ghost">CANCELAR</button>
-                <button id="confirm-telegram" class="btn-black">YA PAGUÉ</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-login" class="modal">
-        <div class="modal-box">
-            <h3>ACCESO ADMIN</h3>
-            <input type="email" id="log-email" placeholder="Correo">
-            <input type="password" id="log-pass" placeholder="Password">
-            <button id="btn-do-login" class="btn-black">ENTRAR</button>
-            <button onclick="closeModal('modal-login')" class="btn-ghost">CERRAR</button>
         </div>
     </div>
 
