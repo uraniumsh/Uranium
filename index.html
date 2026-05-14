@@ -15,48 +15,74 @@
         <div class="logo">URANIUM</div>
         <div class="nav-right">
             <button id="admin-login-btn" class="btn-ghost">ADMIN</button>
-            <div class="cart-status" id="cart-trigger">CARRITO (<span id="cart-qty">0</span>)</div>
+            <div class="cart-trigger" id="cart-open">CARRITO (<span id="cart-count">0</span>)</div>
         </div>
     </nav>
 
-    <div id="admin-dashboard" class="dashboard" style="display: none;">
-        <div class="dashboard-inner">
-            <h3>NUEVO PRODUCTO</h3>
-            <div class="form-grid">
+    <section id="admin-dash" class="dashboard" style="display: none;">
+        <div class="dash-container">
+            <h3>PANEL DE CONTROL</h3>
+            <div class="dash-form">
                 <input type="text" id="p-name" placeholder="Nombre del servicio">
                 <input type="number" id="p-price" placeholder="Precio ($)">
-                <input type="text" id="p-img" placeholder="URL de la imagen">
+                <input type="text" id="p-img" placeholder="URL de imagen (Link)">
                 <select id="p-cat">
                     <option value="Streaming">Streaming</option>
                     <option value="Combos">Combos</option>
-                    <option value="Premium">Premium</option>
+                    <option value="Ofertas">Ofertas</option>
                 </select>
-                <button id="save-product" class="btn-dark">PUBLICAR</button>
-                <button id="logout-btn" class="btn-ghost">SALIR</button>
+                <button id="btn-publish" class="btn-black">PUBLICAR</button>
+                <button id="btn-logout" class="btn-ghost">CERRAR SESIÓN</button>
+            </div>
+        </div>
+    </section>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <p class="side-title">PLATAFORMAS</p>
+            <button onclick="render('all')">TODO</button>
+            <button onclick="render('Streaming')">STREAMING</button>
+            <button onclick="render('Combos')">COMBOS</button>
+            <button onclick="render('Ofertas')">OFERTAS</button>
+        </aside>
+
+        <main class="store">
+            <div id="grid" class="grid"></div>
+        </main>
+    </div>
+
+    <div id="modal-cart" class="modal">
+        <div class="modal-box">
+            <h3>TU PEDIDO</h3>
+            <div id="cart-list" class="cart-list"></div>
+            <p class="total">Total: $<span id="total-val">0</span></p>
+            <div class="modal-btns">
+                <button onclick="closeModal('modal-cart')" class="btn-ghost">VOLVER</button>
+                <button id="pay-nequi" class="btn-black">PAGAR CON NEQUI</button>
             </div>
         </div>
     </div>
 
-    <div class="main-wrapper">
-        <aside class="filters">
-            <p>CATEGORÍAS</p>
-            <button onclick="renderProducts('all')">VER TODO</button>
-            <button onclick="renderProducts('Streaming')">STREAMING</button>
-            <button onclick="renderProducts('Combos')">COMBOS</button>
-        </aside>
-
-        <section class="store-front">
-            <div id="products-grid" class="grid"></div>
-        </section>
+    <div id="modal-nequi" class="modal">
+        <div class="modal-box">
+            <h3>PAGO NEQUI</h3>
+            <p>Transfiere al número:</p>
+            <h2 class="nequi-num">3043344577</h2>
+            <p class="nequi-info">Al confirmar, notificaremos tu pago por Telegram.</p>
+            <div class="modal-btns">
+                <button onclick="closeModal('modal-nequi')" class="btn-ghost">CANCELAR</button>
+                <button id="confirm-telegram" class="btn-black">YA PAGUÉ</button>
+            </div>
+        </div>
     </div>
 
-    <div id="login-modal" class="modal">
+    <div id="modal-login" class="modal">
         <div class="modal-box">
-            <h4>ACCESO RESTRINGIDO</h4>
-            <input type="email" id="email" placeholder="Email">
-            <input type="password" id="pass" placeholder="Password">
-            <button id="do-login" class="btn-dark">ENTRAR</button>
-            <button onclick="closeModal()" class="btn-ghost">CANCELAR</button>
+            <h3>ACCESO ADMIN</h3>
+            <input type="email" id="log-email" placeholder="Correo">
+            <input type="password" id="log-pass" placeholder="Password">
+            <button id="btn-do-login" class="btn-black">ENTRAR</button>
+            <button onclick="closeModal('modal-login')" class="btn-ghost">CERRAR</button>
         </div>
     </div>
 
