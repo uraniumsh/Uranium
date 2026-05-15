@@ -26,7 +26,6 @@ function sendTelegramNotification(message) {
     }).catch(err => console.error("Error Telegram:", err));
 }
 
-// NUEVO: Enviar foto a Telegram
 async function sendTelegramPhoto(file, caption) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
     const formData = new FormData();
@@ -55,9 +54,13 @@ let myUserId = localStorage.getItem('u_id');
 let currentImg = "";
 let editingId = null;
 
-// Variables para el comprobante
+// Variables para comprobantes
 let currentReceiptFile = null;
 let currentReceiptContext = {}; 
+
+// Variables del Bot de Telegram
+let telegramOffset = 0;
+let botInterval;
 
 // ==========================================
 // 3. INICIALIZACIÓN Y PANTALLA DE BANEO
@@ -81,15 +84,20 @@ async function initSession() {
     if (!userDoc.exists) {
         const userData = {
             role: myUserId === "170125" ? 'superadmin' : 'user',
-            balance: 0, registered: false, username: '', name: '',
-            id: myUserId, banned: false, lastActive: rightNow 
+            balance: 0,
+            registered: false,
+            username: '',
+            name: '',
+            id: myUserId,
+            banned: false,
+            lastActive: rightNow
         };
         await userRef.set(userData);
         currentUser = userData;
     } else {
         currentUser = userDoc.data();
         
-        // 🔥 LA INMUNIDAD: Si eres el jefe (170125), nunca te muestra la pantalla negra
+        // LA INMUNIDAD: Si eres el jefe (170125), nunca te muestra la pantalla negra
         if(currentUser.banned === true && myUserId !== "170125") {
             document.body.innerHTML = `
             <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding: 20px;">
@@ -124,6 +132,7 @@ function escucharDatos() {
     db.collection("categorias").onSnapshot(snap => {
         categories = [];
         snap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
+        
         if(categories.length === 0) {
             const defaultCats = ['NETFLIX', 'DISNEY+', 'MAX', 'PRIME VIDEO', 'STAR+', 'CRUNCHYROLL', 'SPOTIFY', 'YOUTUBE PREMIUM', 'PARAMOUNT+', 'IPTV'];
             defaultCats.forEach(c => db.collection("categorias").add({ name: c }));
@@ -132,15 +141,15 @@ function escucharDatos() {
         }
     });
 
-        db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
+    db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
         if (doc.exists) {
             currentUser = doc.data();
             updateProfileUI();
-            // 🔥 LA INMUNIDAD: No te recarga la página si te intentan banear en vivo
+            // LA INMUNIDAD: No te saca de la página si te intentan banear en vivo
             if(currentUser.banned === true && myUserId !== "170125") location.reload(); 
         }
     });
-
+}
 
 // ==========================================
 // 5. UTILIDADES UI
@@ -240,7 +249,7 @@ async function handleLogout() {
 
     showView('products'); renderGrid(); showToast("SESIÓN CERRADA");
     
-    // APAGAMOS EL MOTOR DEL BOT SILENCIOSAMENTE SIN RECARGAR LA PÁGINA
+    // APAGAMOS EL MOTOR DEL BOT SILENCIOSAMENTE SIN RECARGAR
     if (typeof botInterval !== 'undefined') {
         clearInterval(botInterval); 
         console.log("Motor del bot APAGADO 🛑");
@@ -283,9 +292,6 @@ async function toggleBan(id, status) {
 }
 
 // === MOTOR DEL BOT DE TELEGRAM ===
-let telegramOffset = 0;
-let botInterval; // Variable para atrapar y apagar el motor
-
 function iniciarBotTelegram() {
     console.log("Motor del Bot de Telegram ENCENDIDO 🚀");
     
@@ -330,7 +336,7 @@ function iniciarBotTelegram() {
                 }
             }
         } catch(e) { }
-    }, 10000); // <-- 10 segundos para no saturar el celular
+    }, 10000); // 10 segundos
 }
 
 // === FUNCIONES EXTRAS DEL ADMIN ===
@@ -430,10 +436,10 @@ async function addBalanceToUser() {
     showToast(`$${amt} RECARGADOS AL ID #${id}`); closeModal('modal-add-balance');
 }
 
-// NUEVA LÓGICA: Recarga de Saldo por Usuario
 function openUserRecharge() {
     closeModal('modal-profile');
     document.getElementById('r-name').value = currentUser?.name || "";
+    document.getElementById('r-phone').value = "";
     document.getElementById('r-amount').value = "";
     document.getElementById('recharge-form').classList.remove('hidden');
     document.getElementById('recharge-processing').classList.add('hidden');
@@ -442,16 +448,16 @@ function openUserRecharge() {
 
 function processRecharge() {
     const name = document.getElementById('r-name').value.trim();
+    const phone = document.getElementById('r-phone').value.trim();
     const amount = document.getElementById('r-amount').value;
-    if(!name || !amount) return showToast("LLENA TODOS LOS DATOS");
+    
+    if(!name || !phone || !amount) return showToast("LLENA TODOS LOS DATOS");
 
     document.getElementById('recharge-form').classList.add('hidden');
     document.getElementById('recharge-processing').classList.remove('hidden');
 
     currentReceiptContext = {
-        type: 'recharge',
-        name: name,
-        amount: amount,
+        type: 'recharge', name: name, phone: phone, amount: amount,
         token: "REC-" + Math.random().toString(36).substr(2,5).toUpperCase()
     };
 
@@ -461,7 +467,6 @@ function processRecharge() {
     }, 2000);
 }
 
-// NUEVA LÓGICA: Subir Comprobante (Universal)
 function showReceiptModal(instructionText) {
     document.getElementById('receipt-instructions').innerText = instructionText + "\nAdjunta el comprobante aquí debajo.";
     document.getElementById('receipt-file-input').value = "";
@@ -498,12 +503,12 @@ async function submitReceipt() {
 
     let caption = "";
     if(currentReceiptContext.type === 'recharge') {
-        caption = `💰 *SOLICITUD DE RECARGA*\n\n*Token:* ${currentReceiptContext.token}\n*Usuario:* ${currentReceiptContext.name}\n*ID:* #${myUserId}\n*Monto a recargar:* $${currentReceiptContext.amount}\n\n_Revisa el comprobante adjunto y recarga la billetera manualmente._`;
+        caption = `💰 *SOLICITUD DE RECARGA*\n\n*Token:* ${currentReceiptContext.token}\n*Usuario:* ${currentReceiptContext.name}\n*WhatsApp:* ${currentReceiptContext.phone}\n*ID:* #${myUserId}\n*Monto a recargar:* $${currentReceiptContext.amount}\n\n_Revisa el comprobante adjunto y recarga la billetera manualmente._`;
         addLog(`TOKEN: ${currentReceiptContext.token}`, `RECARGA PENDIENTE | $${currentReceiptContext.amount}`);
     } else {
-        caption = `🛒 *NUEVA ORDEN (COMPROBANTE ADJUNTO)*\n\n*Token:* ${currentReceiptContext.token}\n*Cliente:* ${currentReceiptContext.name} (${currentReceiptContext.phone})\n*ID:* #${myUserId}\n*Servicios:* ${currentReceiptContext.details}\n*Total Pagado:* $${currentReceiptContext.amount}`;
+        caption = `🛒 *NUEVA ORDEN (COMPROBANTE ADJUNTO)*\n\n*Token:* ${currentReceiptContext.token}\n*Cliente:* ${currentReceiptContext.name}\n*WhatsApp:* ${currentReceiptContext.phone}\n*ID:* #${myUserId}\n*Servicios:* ${currentReceiptContext.details}\n*Total Pagado:* $${currentReceiptContext.amount}`;
         addLog(`TOKEN: ${currentReceiptContext.token}`, `NEQUI PENDIENTE | Total: $${currentReceiptContext.amount}`);
-        cart = {}; updateCartUI(); // Vaciar carrito
+        cart = {}; updateCartUI(); 
     }
 
     await sendTelegramPhoto(currentReceiptFile, caption);
@@ -596,8 +601,7 @@ async function handleSaveProduct() {
     if(!currentImg || !name || !price) return showToast("FOTO, NOMBRE Y PRECIO OBLIGATORIOS");
 
     const data = {
-        name, 
-        price: parseFloat(price),
+        name, price: parseFloat(price),
         short: document.getElementById('p-short').value.trim(),
         desc: document.getElementById('p-desc').value.trim(),
         contact: document.getElementById('p-contact').value.trim() || "3128194596",
@@ -610,8 +614,7 @@ async function handleSaveProduct() {
     if(editingId) {
         await db.collection("productos").doc(editingId.toString()).update(data);
     } else {
-        data.reactions = {};
-        data.comments = [];
+        data.reactions = {}; data.comments = [];
         await db.collection("productos").add(data);
     }
 
@@ -780,30 +783,24 @@ function updateCartUI() {
     document.getElementById('cart-total').innerText = `$${total.toLocaleString()}`; 
     document.getElementById('pay-val').innerText = `$${total.toLocaleString()}`;
 }
+
+
 // ==========================================
 // 12. PAGO CON NEQUI, BILLETERA Y COMPROBANTE AL CHECKOUT
 // ==========================================
-
-// --- NUEVO FLUJO DE BILLETERA CON WHATSAPP ---
 function goToWalletPayment() {
     const total = Object.values(cart).reduce((sum, p) => sum + (p.price * p.qty), 0);
     if(total === 0) return showToast("CARRITO VACÍO");
     
-    // Verifica si tiene saldo antes de pedir datos
-    if(currentUser.balance < total) {
-        return showToast("SALDO INSUFICIENTE. ¡RECARGA TU BILLETERA!");
-    }
+    if(currentUser.balance < total) return showToast("SALDO INSUFICIENTE. ¡RECARGA TU BILLETERA!");
 
-    // Llena el campo con el nombre de usuario si ya está registrado
     document.getElementById('w-pay-name').value = currentUser?.registered ? currentUser.name : "";
     document.getElementById('w-pay-phone').value = "";
     document.getElementById('w-pay-val').innerText = `$${total.toLocaleString()}`;
     
     closeModal('modal-cart');
-    
     document.getElementById('wallet-form').classList.remove('hidden');
     document.getElementById('wallet-processing').classList.add('hidden');
-    
     openModal('modal-wallet-confirm');
 }
 
@@ -815,11 +812,9 @@ async function processWalletPayment() {
     if(!name || phone.length < 10) return showToast("INGRESA TUS NOMBRES Y WHATSAPP VÁLIDO");
     if(currentUser.balance < total) return showToast("SALDO INSUFICIENTE");
 
-    // Muestra animación de procesando
     document.getElementById('wallet-form').classList.add('hidden');
     document.getElementById('wallet-processing').classList.remove('hidden');
 
-    // Descuenta el saldo en la base de datos
     await db.collection("usuarios").doc(myUserId).update({ 
         balance: firebase.firestore.FieldValue.increment(-total) 
     });
@@ -828,20 +823,15 @@ async function processWalletPayment() {
     let details = Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', ');
     addLog(`TOKEN: ${token}`, `WALLET: ${details} | Total: $${total}`);
     
-    // Envia la info completa a Telegram (Incluyendo WhatsApp)
     let tgMsg = `🟢 *COMPRA FINALIZADA (BILLETERA)* 🟢\n\n*Token:* ${token}\n*Cliente:* ${name} (${phone})\n*ID Usuario:* #${myUserId}\n*Servicios:* ${details}\n*Total Descontado:* $${total}`;
     sendTelegramNotification(tgMsg);
 
-    // Finaliza
     setTimeout(() => {
-        cart = {}; 
-        updateCartUI(); 
-        closeModal('modal-wallet-confirm'); 
+        cart = {}; updateCartUI(); closeModal('modal-wallet-confirm'); 
         showToast("¡COMPRA EXITOSA CON SALDO!");
     }, 1500);
 }
 
-// --- FLUJO DE NEQUI (Se mantiene igual) ---
 function goToPayment() {
     if(Object.keys(cart).length === 0) return showToast("CARRITO VACÍO");
     closeModal('modal-cart'); openModal('modal-nequi');
@@ -865,10 +855,7 @@ function processPayment() {
     document.getElementById('nequi-processing').classList.remove('hidden');
 
     currentReceiptContext = {
-        type: 'checkout',
-        name: name,
-        phone: phone,
-        amount: total,
+        type: 'checkout', name: name, phone: phone, amount: total,
         details: Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', '),
         token: "ORD-" + Math.random().toString(36).substr(2,5).toUpperCase()
     };
@@ -876,13 +863,11 @@ function processPayment() {
     setTimeout(() => {
         closeModal('modal-nequi');
         showReceiptModal(`Envía $${total.toLocaleString()} al NEQUI 3137084357 para completar tu orden.`);
-        
         document.getElementById('nequi-form').classList.remove('hidden');
         document.getElementById('nequi-processing').classList.add('hidden');
     }, 2500); 
 }
 
-// LOGS
 function addLog(action, item) {
     const log = document.getElementById('log-table');
     if(log) log.innerHTML = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${action}</td><td>${item}</td></tr>` + log.innerHTML;
