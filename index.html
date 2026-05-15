@@ -26,11 +26,10 @@
 
     <div id="toast-container"></div>
 
-    
-        <div id="admin-bar" class="admin-top-bar hidden">
+    <div id="admin-bar" class="admin-top-bar hidden">
         <div class="admin-bar-content">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span id="admin-role-badge">ADMIN</span>
+                <span id="admin-role-badge">SÚPER ADMIN</span>
             </div>
             <div class="admin-bar-btns">
                 <button onclick="showView('dashboard')">DASHBOARD</button>
@@ -38,14 +37,15 @@
                 <button onclick="showView('foro')">FORO 💬</button>
             </div>
         </div>
-        </div>
-    
+    </div>
+
     <header class="main-header">
         <div class="logo" onclick="showView('products')">
             URANIUM<br><span class="logo-sub">DIGITAL</span>
         </div>
         <div class="header-right">
             <div class="header-icon" onclick="toggleDarkMode()">🌙</div>
+            <div class="header-icon" onclick="showView('foro')" style="color: #da0081;">💬</div>
             <div class="header-icon" onclick="openModal('modal-profile')">👤</div>
             <div class="cart-wrapper" onclick="openModal('modal-cart')">
                 🛒<span id="cart-count" class="cart-badge">0</span>
@@ -62,7 +62,7 @@
                 <div class="product-grid" id="product-grid"></div>
             </section>
 
-                        <section id="view-dashboard" class="view-section hidden">
+            <section id="view-dashboard" class="view-section hidden">
                 <h2>PANEL DE ÓRDENES Y DASHBOARD</h2>
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO MANUAL</button>
@@ -94,15 +94,19 @@
                         <tbody id="log-table"></tbody>
                     </table>
                 </div>
-                        </section>
+            </section>
 
             <section id="view-foro" class="view-section hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2>FORO Y ANUNCIOS 💬</h2>
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openForumModal()">+ NUEVO DEBATE</button>
                 </div>
-                <div id="forum-feed">
-                    </div>
+                <div id="forum-feed"></div>
+            </section>
+
+            <section id="view-forum-detail" class="view-section hidden">
+                <button class="btn-primary" style="width: auto; padding: 5px 15px; margin-bottom: 15px; background: #555;" onclick="showView('foro')">⬅ VOLVER AL FORO</button>
+                <div id="forum-detail-content"></div>
             </section>
         </main>
 
@@ -119,6 +123,23 @@
                 </nav>
             </div>
         </aside>
+    </div>
+
+    <div id="modal-wallet-confirm" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-wallet-confirm')">×</span>
+            <div class="nequi-head" style="font-weight: 900; font-size: 20px; margin-bottom: 15px; color: #da0081;">PAGO BILLETERA</div>
+            <p style="font-size: 11px; margin-bottom: 15px; color: gray;">Ingresa tus datos para confirmar tu pedido y descontar el saldo.</p>
+            <div id="wallet-form" class="admin-form">
+                <input type="text" id="w-pay-name" placeholder="TUS NOMBRES Y APELLIDOS">
+                <input type="number" id="w-pay-phone" placeholder="TU NÚMERO DE WHATSAPP">
+                <div class="pay-sum" style="margin-bottom: 15px;">TOTAL A DESCONTAR: <strong id="w-pay-val"></strong></div>
+                <button class="btn-primary" style="background: #25d366; color: white;" onclick="processWalletPayment()">CONFIRMAR COMPRA</button>
+            </div>
+            <div id="wallet-processing" class="hidden" style="text-align: center; padding: 20px 0;">
+                <div class="spinner"></div><h3 style="margin-top: 15px;">PROCESANDO...</h3>
+            </div>
+        </div>
     </div>
 
     <div id="modal-profile" class="modal hidden">
@@ -153,9 +174,7 @@
                 <input type="number" id="r-amount" placeholder="MONTO A RECARGAR ($)">
                 <button class="btn-primary" style="background: #25d366; color: white;" onclick="processRecharge()">CONTINUAR</button>
             </div>
-            <div id="recharge-processing" class="hidden" style="text-align: center; padding: 20px 0;">
-                <div class="spinner"></div><h3 style="margin-top: 15px;">PROCESANDO SOLICITUD...</h3>
-            </div>
+            <div id="recharge-processing" class="hidden" style="text-align: center; padding: 20px 0;"><div class="spinner"></div></div>
         </div>
     </div>
 
@@ -163,9 +182,7 @@
         <div class="modal-content narrow">
             <span class="close" onclick="closeModal('modal-receipt')">×</span>
             <h2>ADJUNTAR COMPROBANTE</h2>
-            <p id="receipt-instructions" style="font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #da0081; line-height: 1.4;">
-                Envía el dinero al NEQUI 3137074357 y adjunta el comprobante de pago con el número de referencia aquí.
-            </p>
+            <p id="receipt-instructions" style="font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #da0081; line-height: 1.4;"></p>
             <div id="receipt-form" class="admin-form">
                 <div class="upload-zone" onclick="document.getElementById('receipt-file-input').click()" style="height: 200px; border-color: #da0081;">
                     <span id="receipt-upload-label" style="text-align: center;">CLICK PARA SUBIR COMPROBANTE 📸</span>
@@ -174,10 +191,7 @@
                 <input type="file" id="receipt-file-input" accept="image/*" class="hidden" onchange="previewReceipt()">
                 <button class="btn-primary" onclick="submitReceipt()">ENVIAR COMPROBANTE</button>
             </div>
-            <div id="receipt-processing" class="hidden" style="text-align: center; padding: 20px 0;">
-                <div class="spinner"></div><h3 style="margin-top: 15px;">ENVIANDO COMPROBANTE...</h3>
-                <p style="font-size: 10px;">Por favor, no cierres esta ventana</p>
-            </div>
+            <div id="receipt-processing" class="hidden" style="text-align: center; padding: 20px 0;"><div class="spinner"></div></div>
         </div>
     </div>
 
@@ -263,7 +277,7 @@
             <div id="cart-list" class="cart-list-scroll"></div>
             <div class="total-box">TOTAL: <span id="cart-total">$0</span></div>
             <div style="display:flex; flex-direction:column; gap:10px;">
-                <button class="btn-primary" onclick="payWithWallet()">PAGAR CON BILLETERA</button>
+                <button class="btn-primary" onclick="goToWalletPayment()">PAGAR CON BILLETERA</button>
                 <button class="btn-nequi" onclick="goToPayment()">PAGAR CON NEQUI</button>
             </div>
         </div>
@@ -298,7 +312,6 @@
             </div>
             <div id="logout-box" class="hidden" style="text-align: center;">
                 <h2>SESIÓN INICIADA</h2>
-                <p style="margin: 10px 0; font-size: 12px; color: gray;">Has ingresado como Administrador.</p>
                 <button class="btn-primary" style="margin-top: 15px; background: red; color: white;" onclick="handleLogout()">CERRAR SESIÓN</button>
             </div>
         </div>
@@ -323,9 +336,8 @@
             <div class="admin-form" style="margin-top: 15px;">
                 <input type="text" id="f-title" placeholder="TÍTULO DEL DEBATE">
                 <textarea id="f-content" placeholder="Escribe tu mensaje aquí..." style="height: 100px;"></textarea>
-                <p style="font-size: 10px; color: gray; margin: 10px 0 5px 0;">OPCIONAL: ADJUNTAR IMAGEN</p>
                 <div class="upload-zone" onclick="document.getElementById('f-file-input').click()" style="height: 100px;">
-                    <span id="f-upload-label">SUBIR IMAGEN 📸</span>
+                    <span id="f-upload-label">SUBIR IMAGEN 📸 (Opcional)</span>
                     <img id="f-preview" class="hidden" style="width: 100%; height: 100%; object-fit: contain;">
                 </div>
                 <input type="file" id="f-file-input" accept="image/*" class="hidden" onchange="previewForumImage()">
@@ -337,26 +349,30 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-
     <script src="script.js"></script>
 
     <script>
         let forumPosts = [];
         let currentForumImg = "";
 
-        // Escucha en tiempo real para el Foro (Inicia cuando el HTML carga)
         document.addEventListener('DOMContentLoaded', () => {
-            // db viene de script.js, nos aseguramos de que conecte a la colección 'foro'
             setTimeout(() => {
                 db.collection("foro").orderBy("timestamp", "desc").onSnapshot(snap => {
                     forumPosts = [];
                     snap.forEach(doc => forumPosts.push({ id: doc.id, ...doc.data() }));
                     renderForum();
+                    
+                    const activeDetailView = document.getElementById('view-forum-detail');
+                    if(activeDetailView && !activeDetailView.classList.contains('hidden')) {
+                        const currentPostId = activeDetailView.getAttribute('data-current-post');
+                        if(currentPostId) openForumPost(currentPostId);
+                    }
                 });
-            }, 1000); // Pequeño retraso para asegurar que Firebase inicializó en script.js
+            }, 1000); 
         });
 
         function openForumModal() {
+            if(!currentUser || !currentUser.registered) return showToast("⚠️ DEBES REGISTRAR TU PERFIL PARA CREAR UN DEBATE");
             document.getElementById('f-title').value = "";
             document.getElementById('f-content').value = "";
             document.getElementById('f-preview').src = "";
@@ -375,32 +391,23 @@
                     document.getElementById('f-preview').src = reader.result;
                     document.getElementById('f-preview').classList.remove('hidden');
                     document.getElementById('f-upload-label').classList.add('hidden');
-                }; 
-                reader.readAsDataURL(file);
+                }; reader.readAsDataURL(file);
             }
         }
 
         async function saveForumPost() {
             const title = document.getElementById('f-title').value.trim();
             const content = document.getElementById('f-content').value.trim();
-            
             if(!title || !content) return showToast("TÍTULO Y CONTENIDO SON OBLIGATORIOS");
 
-            // myUserId y currentUser.name vienen de script.js
             const data = {
-                authorId: typeof myUserId !== 'undefined' ? myUserId : "Anon",
-                authorName: (typeof currentUser !== 'undefined' && currentUser?.name) ? currentUser.name : "Administrador",
-                title: title,
-                content: content,
-                img: currentForumImg,
-                timestamp: new Date().toISOString()
+                authorId: myUserId, authorName: currentUser.name, title: title, content: content,
+                img: currentForumImg, replies: [], timestamp: new Date().toISOString()
             };
 
             document.getElementById('modal-forum').classList.add('closing');
             await db.collection("foro").add(data);
-            
-            closeModal('modal-forum');
-            showToast("¡DEBATE PUBLICADO!");
+            closeModal('modal-forum'); showToast("¡DEBATE PUBLICADO!");
         }
 
         function renderForum() {
@@ -408,31 +415,80 @@
             if(!feed) return;
             
             feed.innerHTML = forumPosts.map(post => {
-                const date = new Date(post.timestamp).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-                let imgHtml = post.img ? `<img src="${post.img}" style="width: 100%; margin-top: 10px; border: var(--border);">` : "";
-                
-                // Valida si eres admin usando la variable global de script.js
+                const date = new Date(post.timestamp).toLocaleDateString('es-CO', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
                 const isUserAdmin = typeof isAdmin !== 'undefined' ? isAdmin : false;
+                const totalRespuestas = post.replies ? post.replies.length : 0;
 
                 return `
-                <div class="forum-card">
+                <div class="forum-card" style="cursor: pointer;" onclick="openForumPost('${post.id}')">
                     <div class="forum-card-header">
                         <div>
                             <h3 style="margin: 0; color: #da0081;">${post.title}</h3>
-                            <span style="font-size: 10px; color: gray;">Por ${post.authorName} (ID: #${post.authorId}) | ${date}</span>
+                            <span style="font-size: 10px; color: gray;">Por ${post.authorName} | ${date}</span>
                         </div>
-                        ${isUserAdmin ? `<button onclick="deleteForumPost('${post.id}')" style="background: red; color: white; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer;">X</button>` : ''}
+                        ${isUserAdmin ? `<button onclick="event.stopPropagation(); deleteForumPost('${post.id}')" style="background: red; color: white; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer;">X</button>` : ''}
                     </div>
-                    <p style="font-size: 14px; line-height: 1.5; text-transform: none;">${post.content}</p>
-                    ${imgHtml}
-                </div>
-                `;
+                    <p style="font-size: 13px; line-height: 1.4; text-transform: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${post.content}</p>
+                    <div style="margin-top: 10px; font-size: 11px; color: #25d366; font-weight: bold;">💬 ${totalRespuestas} RESPUESTAS -> CLIC PARA LEER</div>
+                </div>`;
             }).join('');
         }
 
+        function openForumPost(postId) {
+            const post = forumPosts.find(p => p.id === postId);
+            if(!post) return;
+            
+            showView('forum-detail');
+            document.getElementById('view-forum-detail').setAttribute('data-current-post', postId);
+            
+            const container = document.getElementById('forum-detail-content');
+            const date = new Date(post.timestamp).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+            let imgHtml = post.img ? `<img src="${post.img}" style="width: 100%; margin-top: 15px; border: var(--border);">` : "";
+            
+            let repliesHtml = (post.replies || []).map(r => `
+                <div style="border-left: 2px solid #da0081; padding-left: 10px; margin-top: 15px; background: rgba(255,255,255,0.02); padding: 10px;">
+                    <strong style="color:#da0081; font-size: 11px;">${r.authorName} <span style="color:gray;">(#${r.authorId})</span></strong>
+                    <p style="margin: 5px 0 0 0; font-size: 13px; text-transform: none;">${r.text}</p>
+                    <span style="font-size: 9px; color: gray;">${new Date(r.timestamp).toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="forum-card" style="border-color: #da0081; padding: 20px;">
+                    <h2 style="margin: 0 0 5px 0; color: #da0081;">${post.title}</h2>
+                    <span style="font-size: 11px; color: gray;">Publicado por ${post.authorName} (ID: #${post.authorId}) | ${date}</span>
+                    <p style="font-size: 15px; line-height: 1.6; text-transform: none; margin-top: 15px;">${post.content}</p>
+                    ${imgHtml}
+                </div>
+                <h3 style="margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">RESPUESTAS (${post.replies ? post.replies.length : 0})</h3>
+                <div id="forum-replies-list" style="margin-bottom: 20px;">
+                    ${repliesHtml || '<p style="font-size: 12px; color: gray; margin-top: 10px;">Nadie ha respondido aún. ¡Sé el primero!</p>'}
+                </div>
+                <div class="admin-form" style="display:flex; flex-direction: column; gap: 10px;">
+                    <textarea id="reply-text-${post.id}" placeholder="Escribe tu respuesta aquí..." style="height: 60px;"></textarea>
+                    <button class="btn-primary" style="background: #25d366; color: white;" onclick="sendForumReply('${post.id}')">ENVIAR RESPUESTA</button>
+                </div>
+            `;
+        }
+
+        async function sendForumReply(postId) {
+            if(!currentUser || !currentUser.registered) return showToast("⚠️ DEBES REGISTRAR TU PERFIL PARA RESPONDER");
+            const input = document.getElementById(`reply-text-${postId}`);
+            const text = input.value.trim();
+            if(!text) return showToast("ESCRIBE ALGO PARA RESPONDER");
+
+            await db.collection("foro").doc(postId).update({
+                replies: firebase.firestore.FieldValue.arrayUnion({
+                    authorId: myUserId, authorName: currentUser.name, text: text, timestamp: new Date().toISOString()
+                })
+            });
+            showToast("¡RESPUESTA ENVIADA!");
+        }
+
         async function deleteForumPost(id) {
-            if(confirm("¿Seguro que quieres borrar este mensaje del foro?")) {
+            if(confirm("¿Seguro que quieres borrar este mensaje del foro y todas sus respuestas?")) {
                 await db.collection("foro").doc(id).delete();
+                showView('foro'); // Devuelve a la lista al borrar
                 showToast("DEBATE ELIMINADO");
             }
         }
