@@ -51,7 +51,13 @@
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO</button>
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openModal('modal-add-cat')">+ CREAR CATEGORÍA</button>
-                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">GESTIÓN ADMINS</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">+ NUEVO ADMIN</button>
+                    <button id="btn-security" class="btn-primary hidden" style="width: auto; padding: 10px; font-size: 12px; background: #000; color: white; border: 1px solid #D4AF37;" onclick="openModal('modal-security')">🔐 SEGURIDAD SÚPER ADMIN</button>
+                </div>
+
+                <div id="admin-list-container" class="hidden" style="margin-bottom: 20px; border: var(--border); padding: 10px;">
+                    <h3 style="margin-bottom: 10px;">ADMINISTRADORES ACTIVOS</h3>
+                    <div id="admins-render-area" style="font-size: 11px;"></div>
                 </div>
 
                 <div class="table-container">
@@ -165,7 +171,11 @@
                     <input type="checkbox" id="p-pinned"> 
                     <label for="p-pinned">⭐ FIJAR PUBLICACIÓN AL INICIO</label>
                 </div>
-                <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR PRODUCTO</button>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR</button>
+                    <button id="btn-delete-product" class="btn-primary hidden" style="background: red;" onclick="deleteProduct()">🗑️ BORRAR</button>
+                </div>
             </div>
         </div>
     </div>
@@ -223,6 +233,19 @@
                 <h2>SESIÓN INICIADA</h2>
                 <p style="margin: 10px 0; font-size: 12px; color: gray;">Has ingresado como Administrador.</p>
                 <button class="btn-primary" style="margin-top: 15px; background: red; color: white;" onclick="handleLogout()">CERRAR SESIÓN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-security" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-security')">×</span>
+            <h2>CAMBIAR CREDENCIALES</h2>
+            <p style="font-size: 10px; margin-bottom: 15px; color: gray;">Actualiza tu acceso de Súper Admin. No olvides estos datos.</p>
+            <div class="admin-form">
+                <input type="email" id="sec-new-email" placeholder="NUEVO CORREO">
+                <input type="password" id="sec-new-pass" placeholder="NUEVA CONTRASEÑA">
+                <button class="btn-primary" style="background: #D4AF37; color: black;" onclick="updateSuperAdminCreds()">ACTUALIZAR DATOS</button>
             </div>
         </div>
     </div>
