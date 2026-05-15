@@ -221,13 +221,14 @@ function activateAdminUI() {
             document.getElementById('admin-list-container')?.classList.remove('hidden');
             cargarAdminsEnDashboard(); 
         }
-        cargarUsuariosEnDashboard(); // Carga la tabla de registro global
-        iniciarBotTelegram(); // ¡ENCIENDE EL MOTOR DEL BOT!
+        cargarUsuariosEnDashboard(); 
+        iniciarBotTelegram(); 
     }
 }
 
 async function handleLogout() {
     isAdmin = false; localStorage.setItem('u_admin', 'false');
+    
     document.getElementById('admin-bar')?.classList.add('hidden');
     document.getElementById('admin-sidebar')?.classList.add('hidden');
     document.getElementById('btn-login-header')?.classList.remove('hidden');
@@ -236,8 +237,14 @@ async function handleLogout() {
     document.getElementById('logout-box')?.classList.add('hidden');
     document.getElementById('btn-security')?.classList.add('hidden');
     document.getElementById('admin-list-container')?.classList.add('hidden');
+
     showView('products'); renderGrid(); showToast("SESIÓN CERRADA");
-    location.reload(); // Refresca para apagar el motor del bot
+    
+    // APAGAMOS EL MOTOR DEL BOT SILENCIOSAMENTE SIN RECARGAR LA PÁGINA
+    if (typeof botInterval !== 'undefined') {
+        clearInterval(botInterval); 
+        console.log("Motor del bot APAGADO 🛑");
+    }
 }
 
 // === GESTIÓN DE USUARIOS Y BANEO EN PANTALLA ===
@@ -245,12 +252,11 @@ function cargarUsuariosEnDashboard() {
     const tbody = document.getElementById('users-table');
     if(!tbody) return;
     
-    // Trae a todos ordenados por el último que entró
     db.collection("usuarios").orderBy("lastActive", "desc").onSnapshot(snap => {
         tbody.innerHTML = '';
         snap.forEach(doc => {
             const u = doc.data();
-            if(u.id === "170125") return; // No te muestra a ti mismo para no auto-banearte
+            if(u.id === "170125") return; 
             
             const isBanned = u.banned === true;
             const date = u.lastActive ? new Date(u.lastActive).toLocaleString('es-CO', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Nunca';
@@ -276,11 +282,14 @@ async function toggleBan(id, status) {
     }
 }
 
-// === MOTOR DEL BOT DE TELEGRAM (TRUCO HACKER) ===
+// === MOTOR DEL BOT DE TELEGRAM ===
 let telegramOffset = 0;
+let botInterval; // Variable para atrapar y apagar el motor
+
 function iniciarBotTelegram() {
-    console.log("Motor del Bot de Telegram ENCIENDIDO 🚀");
-    setInterval(async () => {
+    console.log("Motor del Bot de Telegram ENCENDIDO 🚀");
+    
+    botInterval = setInterval(async () => {
         if(!isAdmin) return; 
         try {
             const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${telegramOffset}`);
@@ -306,9 +315,8 @@ function iniciarBotTelegram() {
                             showToast(`Recarga por Telegram a #${targetId} procesada`);
                         }
                         else if(comando === "/ban" && targetId) {
-                            // 🔥 LA INMUNIDAD DEL BOT: Se niega a banear al Súper Admin
                             if(targetId === "170125") {
-                                sendTelegramNotification("⚠️ ERROR: No tienes permiso para banear al Admin de URANIUM.");
+                                sendTelegramNotification("⚠️ ERROR: No tienes permiso para banear al Súper Admin de URANIUM.");
                                 continue; 
                             }
                             await db.collection("usuarios").doc(targetId).update({ banned: true });
@@ -322,7 +330,7 @@ function iniciarBotTelegram() {
                 }
             }
         } catch(e) { }
-    }, 3000); 
+    }, 10000); // <-- 10 segundos para no saturar el celular
 }
 
 // === FUNCIONES EXTRAS DEL ADMIN ===
@@ -381,7 +389,6 @@ async function inicializarSuperAdminSeguro() {
     }
 }
 inicializarSuperAdminSeguro();
-        
 
 // ==========================================
 // 7. PERFIL, RECARGA POR NEQUI Y COMPROBANTES
