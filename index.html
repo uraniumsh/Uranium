@@ -3,74 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>URANIUM STORE</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <title>URANIUM DIGITAL | Store Pro</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <header class="top-bar">
-        <div class="logo">URANIUM</div>
-        <div class="header-right">
-            <div id="device-tag" class="device-id">ID: Cargando...</div>
-            <div class="cart-btn" onclick="openCart()">
-                CARRITO (<span id="cart-qty">0</span>)
+    <div id="toast-container"></div>
+
+    <div id="admin-bar" class="admin-top-bar hidden">
+        <div class="admin-bar-content">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn-icon" onclick="openModal('modal-manage-admins')">☰</button>
+                <span id="admin-role-badge">SÚPER ADMIN</span>
             </div>
+            <div class="admin-bar-btns">
+                <button onclick="showView('dashboard')">ÓRDENES Y DASHBOARD</button>
+                <button onclick="openPublishModal()">+ PUBLICAR PRODUCTO</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="main-header">
+        <div class="logo" onclick="showView('products')">
+            URANIUM<br><span class="logo-sub">DIGITAL</span>
+        </div>
+        <div class="header-right">
+            <div class="header-icon" onclick="toggleDarkMode()">🌙</div>
+            <div class="header-icon" onclick="openModal('modal-profile')">👤</div>
+            <div class="cart-wrapper" onclick="openModal('modal-cart')">
+                🛒<span id="cart-count" class="cart-badge">0</span>
+            </div>
+            <div class="header-icon" id="btn-login-header" onclick="openModal('modal-settings')">⚙️</div>
+            <div class="header-icon hidden" id="btn-logout-header" onclick="handleLogout()" style="color: red;">🚪</div>
         </div>
     </header>
 
     <div class="layout">
-        <aside id="admin-sidebar" class="sidebar admin-side" style="display: none;">
-            <p class="section-title">DASHBOARD ADMIN</p>
-            <div class="admin-form">
-                <input type="text" id="p-name" placeholder="Nombre (Ej: Netflix)">
-                <input type="number" id="p-price" placeholder="Precio Venta (PV)">
-                <input type="text" id="p-img" placeholder="Link Logo/Imagen">
-                <textarea id="p-desc" placeholder="Descripción detallada"></textarea>
-                <select id="p-cat">
-                    <option value="Streaming">Streaming</option>
-                    <option value="Combos">Combos</option>
-                </select>
-                <button onclick="uploadProduct()" class="btn-black">PUBLICAR PRODUCTO</button>
+        <main class="content">
+            <section id="view-products" class="view-section">
+                <div class="mobile-cat-nav" id="mobile-nav-cats"></div>
+                <div class="product-grid" id="product-grid"></div>
+            </section>
+
+            <section id="view-dashboard" class="view-section hidden">
+                <h2>PANEL DE ÓRDENES Y DASHBOARD</h2>
+                
+                <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openModal('modal-add-cat')">+ CREAR CATEGORÍA</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">GESTIÓN ADMINS</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="brutalist-table">
+                        <thead>
+                            <tr>
+                                <th>TOKEN / HORA</th>
+                                <th>ACCIÓN</th>
+                                <th>DETALLE / VALOR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <aside class="sidebar">
+            <div class="sidebar-group">
+                <span class="group-title">PLATAFORMAS</span>
+                <nav id="nav-cats" class="nav-links"></nav>
+            </div>
+            <div id="admin-sidebar" class="sidebar-group hidden">
+                <span class="group-title">SISTEMA ADMIN</span>
+                <nav class="nav-links">
+                    <a href="#" onclick="showView('dashboard')">IR AL DASHBOARD -></a>
+                </nav>
             </div>
         </aside>
-
-        <aside class="sidebar filters-side">
-            <p class="section-title">CATEGORÍAS</p>
-            <button onclick="render('all')">TODO</button>
-            <button onclick="render('Streaming')">STREAMING</button>
-            <button onclick="render('Combos')">COMBOS</button>
-        </aside>
-
-        <main class="main-content">
-            <div id="products-grid" class="grid"></div>
-        </main>
     </div>
 
-    <div id="modal-detail" class="modal">
-        <div class="modal-box detail-box">
-            <div id="detail-content"></div>
-            <div class="modal-footer">
-                <button onclick="closeModals()" class="btn-ghost">VOLVER</button>
-                <button id="add-to-cart-btn" class="btn-black">AÑADIR AL CARRITO</button>
+    <div id="modal-profile" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-profile')">×</span>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">👤</div>
+                <h2 style="margin-top: 10px;" id="profile-name-display">USUARIO</h2>
+                <p style="font-size: 12px; color: gray;">ID: <span id="profile-id"></span></p>
+                <div class="wallet-box">
+                    <p style="font-size: 10px;">SALDO DISPONIBLE</p>
+                    <h2 id="wallet-balance">$0</h2>
+                </div>
+            </div>
+            
+            <div id="register-section" class="admin-form" style="margin-top: 20px; border-top: var(--border); padding-top: 15px;">
+                <p style="font-size: 10px; margin-bottom: 10px; color: #da0081; font-weight: bold;">REGÍSTRATE Y GANA $5,000 COP</p>
+                <input type="text" id="reg-username" placeholder="@USUARIO (ÚNICO)">
+                <input type="text" id="reg-name" placeholder="NOMBRE MOSTRADO">
+                <button class="btn-primary" onclick="registerUser()">GUARDAR PERFIL</button>
             </div>
         </div>
     </div>
 
-    <div id="modal-cart" class="modal">
-        <div class="modal-box">
-            <h3>MI PEDIDO</h3>
-            <div id="cart-items-list" class="cart-list"></div>
-            <p class="cart-total">TOTAL: $<span id="total-val">0</span></p>
-            <div class="modal-footer-stack">
-                <input type="text" id="client-name" placeholder="Tu Nombre Completo">
-                <button onclick="payNequi()" class="btn-nequi">PAGAR CON NEQUI</button>
-                <button onclick="closeModals()" class="btn-ghost">SEGUIR VIENDO</button>
+    <div id="modal-manage-admins" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-manage-admins')">×</span>
+            <h2>GESTIÓN ADMINS</h2>
+            <div class="admin-form">
+                <input type="text" id="new-admin-id" placeholder="ID DEL USUARIO">
+                <input type="email" id="new-admin-email" placeholder="CORREO PROVISIONAL">
+                <input type="text" id="new-admin-pass" placeholder="CLAVE PROVISIONAL">
+                <button class="btn-primary" onclick="addSubAdmin()">AGREGAR ADMIN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-add-balance" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-add-balance')">×</span>
+            <h2>RECARGAR SALDO</h2>
+            <div class="admin-form">
+                <input type="text" id="bal-user-id" placeholder="ID DEL USUARIO">
+                <input type="number" id="bal-amount" placeholder="CANTIDAD ($)">
+                <button class="btn-primary" style="background: #25d366; color: white;" onclick="addBalanceToUser()">RECARGAR BILLETERA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-add-cat" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-add-cat')">×</span>
+            <h2>NUEVA CATEGORÍA</h2>
+            <div class="admin-form">
+                <input type="text" id="new-cat-name" placeholder="NOMBRE DE PLATAFORMA">
+                <button class="btn-primary" onclick="saveNewCategory()">CREAR PLATAFORMA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-publish" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('modal-publish')">×</span>
+            <h2 id="pub-title">PUBLICAR PRODUCTO</h2>
+            <div class="admin-form">
+                <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+                    <span id="upload-label">CLICK PARA SUBIR IMAGEN *</span>
+                    <img id="file-preview" class="hidden">
+                </div>
+                <input type="file" id="file-input" accept="image/*" class="hidden" onchange="previewImage()">
+                
+                <input type="text" id="p-name" placeholder="NOMBRE (Ej: NETFLIX)">
+                <textarea id="p-short" placeholder="SLOGAN (Máx 2 párrafos)"></textarea>
+                <input type="number" id="p-price" placeholder="PRECIO ($)">
+                <select id="p-cat-select"></select>
+                <textarea id="p-desc" placeholder="DESCRIPCIÓN DETALLADA"></textarea>
+                <input type="text" id="p-contact" placeholder="WHATSAPP DE CONTACTO">
+                <input type="text" id="p-wa" placeholder="MSJ PREDETERMINADO WHATSAPP">
+                <input type="text" id="p-nequi-dest" placeholder="NEQUI DEL VENDEDOR">
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="p-pinned"> 
+                    <label for="p-pinned">⭐ FIJAR PUBLICACIÓN AL INICIO</label>
+                </div>
+                <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR PRODUCTO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-detail" class="modal hidden">
+        <div class="modal-content detail-box">
+            <span class="close" onclick="closeModal('modal-detail')">×</span>
+            <div id="detail-body"></div>
+        </div>
+    </div>
+
+    <div id="modal-cart" class="modal hidden">
+        <div class="modal-content cart-tall">
+            <span class="close" onclick="closeModal('modal-cart')">×</span>
+            <h2>CARRITO DE COMPRAS</h2>
+            <div id="cart-list" class="cart-list-scroll"></div>
+            <div class="total-box">TOTAL: <span id="cart-total">$0</span></div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn-primary" onclick="payWithWallet()">PAGAR CON BILLETERA</button>
+                <button class="btn-nequi" onclick="goToPayment()">PAGAR CON NEQUI</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-nequi" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-nequi')">×</span>
+            <div class="nequi-head" style="font-weight: 900; font-size: 20px; margin-bottom: 15px;">PAGO NEQUI</div>
+            <div id="nequi-form" class="admin-form">
+                <input type="text" id="pay-name" placeholder="TU NOMBRE">
+                <input type="number" id="pay-phone" placeholder="NÚMERO NEQUI">
+                <div class="pay-sum" style="margin-bottom: 15px;">TOTAL: <strong id="pay-val"></strong></div>
+                <button class="btn-nequi" onclick="processPayment()">GENERAR ORDEN SEGURA</button>
+            </div>
+            <div id="nequi-processing" class="hidden" style="text-align: center; padding: 20px 0;">
+                <div class="spinner"></div>
+                <h3 style="margin-top: 15px;">PROCESANDO...</h3>
+                <p style="font-size: 10px;">CREANDO TOKEN DE SEGURIDAD</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-settings" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-settings')">×</span>
+            <div id="login-box">
+                <h2>ACCESO ADMINISTRADOR</h2>
+                <div class="admin-form" style="margin-top: 15px;">
+                    <input type="email" id="l-email" placeholder="CORREO ELECTRÓNICO">
+                    <input type="password" id="l-pass" placeholder="CONTRASEÑA">
+                    <button class="btn-primary" onclick="handleLogin()">ENTRAR</button>
+                </div>
+            </div>
+            <div id="logout-box" class="hidden" style="text-align: center;">
+                <h2>SESIÓN INICIADA</h2>
+                <p style="margin: 10px 0; font-size: 12px; color: gray;">Has ingresado como Administrador.</p>
+                <button class="btn-primary" style="margin-top: 15px; background: red; color: white;" onclick="handleLogout()">CERRAR SESIÓN</button>
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
-</html>
+                </html>
