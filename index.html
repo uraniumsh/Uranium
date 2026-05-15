@@ -26,19 +26,20 @@
 
     <div id="toast-container"></div>
 
-    <div id="admin-bar" class="admin-top-bar hidden">
+    
+        <div id="admin-bar" class="admin-top-bar hidden">
         <div class="admin-bar-content">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <button class="btn-icon" onclick="openModal('modal-manage-admins')">☰</button>
-                <span id="admin-role-badge">SÚPER ADMIN</span>
+                <span id="admin-role-badge">ADMIN</span>
             </div>
             <div class="admin-bar-btns">
-                <button onclick="showView('dashboard')">ÓRDENES Y DASHBOARD</button>
-                <button onclick="openPublishModal()">+ PUBLICAR PRODUCTO</button>
+                <button onclick="showView('dashboard')">DASHBOARD</button>
+                <button onclick="openPublishModal()">+ PUBLICAR</button>
+                <button onclick="showView('foro')">FORO 💬</button>
             </div>
         </div>
-    </div>
-
+        </div>
+    
     <header class="main-header">
         <div class="logo" onclick="showView('products')">
             URANIUM<br><span class="logo-sub">DIGITAL</span>
