@@ -49,9 +49,10 @@
                 <h2>PANEL DE ÓRDENES Y DASHBOARD</h2>
                 
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
-                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO MANUAL</button>
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openModal('modal-add-cat')">+ CREAR CATEGORÍA</button>
-                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">+ NUEVO ADMIN</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: red; color: white;" onclick="openDeleteCatModal()">- ELIMINAR CATEGORÍA</button>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">GESTIÓN ADMINS</button>
                     <button id="btn-security" class="btn-primary hidden" style="width: auto; padding: 10px; font-size: 12px; background: #000; color: white; border: 1px solid #D4AF37;" onclick="openModal('modal-security')">🔐 SEGURIDAD SÚPER ADMIN</button>
                 </div>
 
@@ -63,11 +64,7 @@
                 <div class="table-container">
                     <table class="brutalist-table">
                         <thead>
-                            <tr>
-                                <th>TOKEN / HORA</th>
-                                <th>ACCIÓN</th>
-                                <th>DETALLE / VALOR</th>
-                            </tr>
+                            <tr><th>TOKEN / HORA</th><th>ACCIÓN</th><th>DETALLE / VALOR</th></tr>
                         </thead>
                         <tbody id="log-table"></tbody>
                     </table>
@@ -99,6 +96,7 @@
                 <div class="wallet-box">
                     <p style="font-size: 10px;">SALDO DISPONIBLE</p>
                     <h2 id="wallet-balance">$0</h2>
+                    <button class="btn-primary" style="margin-top: 15px; font-size: 11px; padding: 10px; background: #25d366; color: white;" onclick="openUserRecharge()">+ RECARGAR MI SALDO</button>
                 </div>
             </div>
             
@@ -107,6 +105,46 @@
                 <input type="text" id="reg-username" placeholder="@USUARIO (ÚNICO)">
                 <input type="text" id="reg-name" placeholder="NOMBRE MOSTRADO">
                 <button class="btn-primary" onclick="registerUser()">GUARDAR PERFIL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-user-recharge" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-user-recharge')">×</span>
+            <h2>RECARGAR MI SALDO</h2>
+            <div id="recharge-form" class="admin-form" style="margin-top: 15px;">
+                <input type="text" id="r-name" placeholder="TUS NOMBRES Y APELLIDOS">
+                <input type="number" id="r-amount" placeholder="MONTO A RECARGAR ($)">
+                <button class="btn-primary" style="background: #25d366; color: white;" onclick="processRecharge()">CONTINUAR</button>
+            </div>
+            <div id="recharge-processing" class="hidden" style="text-align: center; padding: 20px 0;">
+                <div class="spinner"></div>
+                <h3 style="margin-top: 15px;">PROCESANDO SOLICITUD...</h3>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-receipt" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-receipt')">×</span>
+            <h2>ADJUNTAR COMPROBANTE</h2>
+            <p id="receipt-instructions" style="font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #da0081; line-height: 1.4;">
+                Envía el dinero al NEQUI 3137084357 y adjunta el comprobante de pago con el número de referencia aquí.
+            </p>
+            <div id="receipt-form" class="admin-form">
+                <div class="upload-zone" onclick="document.getElementById('receipt-file-input').click()" style="height: 200px; border-color: #da0081;">
+                    <span id="receipt-upload-label" style="text-align: center;">CLICK PARA SUBIR COMPROBANTE 📸</span>
+                    <img id="receipt-preview" class="hidden" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <input type="file" id="receipt-file-input" accept="image/*" class="hidden" onchange="previewReceipt()">
+                
+                <button class="btn-primary" onclick="submitReceipt()">ENVIAR COMPROBANTE</button>
+            </div>
+            <div id="receipt-processing" class="hidden" style="text-align: center; padding: 20px 0;">
+                <div class="spinner"></div>
+                <h3 style="margin-top: 15px;">ENVIANDO COMPROBANTE...</h3>
+                <p style="font-size: 10px;">Por favor, no cierres esta ventana</p>
             </div>
         </div>
     </div>
@@ -127,7 +165,7 @@
     <div id="modal-add-balance" class="modal hidden">
         <div class="modal-content narrow">
             <span class="close" onclick="closeModal('modal-add-balance')">×</span>
-            <h2>RECARGAR SALDO</h2>
+            <h2>RECARGAR SALDO MANUAL</h2>
             <div class="admin-form">
                 <input type="text" id="bal-user-id" placeholder="ID DEL USUARIO">
                 <input type="number" id="bal-amount" placeholder="CANTIDAD ($)">
@@ -143,6 +181,17 @@
             <div class="admin-form">
                 <input type="text" id="new-cat-name" placeholder="NOMBRE DE PLATAFORMA">
                 <button class="btn-primary" onclick="saveNewCategory()">CREAR PLATAFORMA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-delete-cat" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-delete-cat')">×</span>
+            <h2>ELIMINAR CATEGORÍA</h2>
+            <div class="admin-form" style="margin-top: 15px;">
+                <select id="d-cat-select"></select>
+                <button class="btn-primary" style="background: red;" onclick="deleteCategory()">🗑️ ELIMINAR PLATAFORMA</button>
             </div>
         </div>
     </div>
@@ -165,17 +214,12 @@
                 <textarea id="p-desc" placeholder="DESCRIPCIÓN DETALLADA"></textarea>
                 <input type="text" id="p-contact" placeholder="WHATSAPP DE CONTACTO">
                 <input type="text" id="p-wa" placeholder="MSJ PREDETERMINADO WHATSAPP">
-                <input type="text" id="p-nequi-dest" placeholder="NEQUI DEL VENDEDOR">
                 
                 <div class="checkbox-group">
                     <input type="checkbox" id="p-pinned"> 
                     <label for="p-pinned">⭐ FIJAR PUBLICACIÓN AL INICIO</label>
                 </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR</button>
-                    <button id="btn-delete-product" class="btn-primary hidden" style="background: red;" onclick="deleteProduct()">🗑️ BORRAR</button>
-                </div>
+                <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR PRODUCTO</button>
             </div>
         </div>
     </div>
@@ -205,8 +249,8 @@
             <span class="close" onclick="closeModal('modal-nequi')">×</span>
             <div class="nequi-head" style="font-weight: 900; font-size: 20px; margin-bottom: 15px;">PAGO NEQUI</div>
             <div id="nequi-form" class="admin-form">
-                <input type="text" id="pay-name" placeholder="TU NOMBRE">
-                <input type="number" id="pay-phone" placeholder="NÚMERO NEQUI">
+                <input type="text" id="pay-name" placeholder="TUS NOMBRES Y APELLIDOS">
+                <input type="number" id="pay-phone" placeholder="TU NÚMERO DE WHATSAPP">
                 <div class="pay-sum" style="margin-bottom: 15px;">TOTAL: <strong id="pay-val"></strong></div>
                 <button class="btn-nequi" onclick="processPayment()">GENERAR ORDEN SEGURA</button>
             </div>
@@ -252,7 +296,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
     <script src="script.js"></script>
 </body>
