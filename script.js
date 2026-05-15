@@ -81,21 +81,16 @@ async function initSession() {
     if (!userDoc.exists) {
         const userData = {
             role: myUserId === "170125" ? 'superadmin' : 'user',
-            balance: 0,
-            registered: false,
-            username: '',
-            name: '',
-            id: myUserId,
-            banned: false,
-            lastActive: rightNow // Registra cuándo entró
+            balance: 0, registered: false, username: '', name: '',
+            id: myUserId, banned: false, lastActive: rightNow 
         };
         await userRef.set(userData);
         currentUser = userData;
     } else {
         currentUser = userDoc.data();
         
-        // PANTALLA NEGRA DE LA MUERTE SI ESTÁ BANEADO
-        if(currentUser.banned === true) {
+        // 🔥 LA INMUNIDAD: Si eres el jefe (170125), nunca te muestra la pantalla negra
+        if(currentUser.banned === true && myUserId !== "170125") {
             document.body.innerHTML = `
             <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding: 20px;">
                 <h1 style="font-size:80px; margin:0;">🚫</h1>
@@ -103,10 +98,9 @@ async function initSession() {
                 <p>Tu acceso a URANIUM DIGITAL ha sido revocado.</p>
                 <p style="font-size:10px; color:gray; margin-top:20px;">ID: #${myUserId}</p>
             </div>`;
-            return; // DETIENE TODO EL CÓDIGO. No puede hacer nada.
+            return; 
         }
         
-        // Si no está baneado, actualiza su última hora de conexión
         await userRef.update({ lastActive: rightNow });
     }
 
@@ -138,15 +132,15 @@ function escucharDatos() {
         }
     });
 
-    db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
+        db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
         if (doc.exists) {
             currentUser = doc.data();
             updateProfileUI();
-            // Lo saca instantáneamente si lo banean mientras está adentro
-            if(currentUser.banned === true) location.reload(); 
+            // 🔥 LA INMUNIDAD: No te recarga la página si te intentan banear en vivo
+            if(currentUser.banned === true && myUserId !== "170125") location.reload(); 
         }
     });
-}
+
 
 // ==========================================
 // 5. UTILIDADES UI
@@ -287,19 +281,19 @@ let telegramOffset = 0;
 function iniciarBotTelegram() {
     console.log("Motor del Bot de Telegram ENCIENDIDO 🚀");
     setInterval(async () => {
-        if(!isAdmin) return; // Si cierras sesión, el bot se apaga por seguridad
+        if(!isAdmin) return; 
         try {
             const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${telegramOffset}`);
             const data = await res.json();
             if(data.ok && data.result.length > 0) {
                 for(let update of data.result) {
-                    telegramOffset = update.update_id + 1; // Para no procesar el mismo mensaje 2 veces
+                    telegramOffset = update.update_id + 1; 
                     
                     if(update.message && update.message.text) {
                         let text = update.message.text.trim();
                         let chatId = update.message.chat.id.toString();
                         
-                        if(chatId !== TELEGRAM_ADMIN_ID) continue; // SOLO TE OBEDECE A TI
+                        if(chatId !== TELEGRAM_ADMIN_ID) continue; 
                         
                         const args = text.split(" ");
                         const comando = args[0].toLowerCase();
@@ -312,6 +306,11 @@ function iniciarBotTelegram() {
                             showToast(`Recarga por Telegram a #${targetId} procesada`);
                         }
                         else if(comando === "/ban" && targetId) {
+                            // 🔥 LA INMUNIDAD DEL BOT: Se niega a banear al Súper Admin
+                            if(targetId === "170125") {
+                                sendTelegramNotification("⚠️ ERROR: No tienes permiso para banear al Admin de URANIUM.");
+                                continue; 
+                            }
                             await db.collection("usuarios").doc(targetId).update({ banned: true });
                             sendTelegramNotification(`🚫 Usuario #${targetId} BANEADO de la página.`);
                         }
@@ -322,8 +321,8 @@ function iniciarBotTelegram() {
                     }
                 }
             }
-        } catch(e) { /* Se mantiene en silencio para no llenar la consola si hay lag de internet */ }
-    }, 3000); // Lee los mensajes de Telegram cada 3 segundos
+        } catch(e) { }
+    }, 3000); 
 }
 
 // === FUNCIONES EXTRAS DEL ADMIN ===
@@ -775,25 +774,67 @@ function updateCartUI() {
     document.getElementById('pay-val').innerText = `$${total.toLocaleString()}`;
 }
 // ==========================================
-// 12. PAGO CON NEQUI Y COMPROBANTE AL CHECKOUT
+// 12. PAGO CON NEQUI, BILLETERA Y COMPROBANTE AL CHECKOUT
 // ==========================================
-async function payWithWallet() {
+
+// --- NUEVO FLUJO DE BILLETERA CON WHATSAPP ---
+function goToWalletPayment() {
     const total = Object.values(cart).reduce((sum, p) => sum + (p.price * p.qty), 0);
     if(total === 0) return showToast("CARRITO VACÍO");
     
-    if(currentUser.balance >= total) {
-        await db.collection("usuarios").doc(myUserId).update({ balance: firebase.firestore.FieldValue.increment(-total) });
-        const token = "ORD-" + Math.random().toString(36).substr(2,5).toUpperCase();
-        let details = Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', ');
-        addLog(`TOKEN: ${token}`, `WALLET: ${details} | Total: $${total}`);
-        
-        let tgMsg = `🟢 *COMPRA FINALIZADA (BILLETERA)* 🟢\n\n*Token:* ${token}\n*ID Usuario:* #${myUserId}\n*Servicios:* ${details}\n*Total Pagado:* $${total}`;
-        sendTelegramNotification(tgMsg);
+    // Verifica si tiene saldo antes de pedir datos
+    if(currentUser.balance < total) {
+        return showToast("SALDO INSUFICIENTE. ¡RECARGA TU BILLETERA!");
+    }
 
-        cart = {}; updateCartUI(); closeModal('modal-cart'); showToast("¡COMPRA EXITOSA CON SALDO!");
-    } else { showToast("SALDO INSUFICIENTE"); }
+    // Llena el campo con el nombre de usuario si ya está registrado
+    document.getElementById('w-pay-name').value = currentUser?.registered ? currentUser.name : "";
+    document.getElementById('w-pay-phone').value = "";
+    document.getElementById('w-pay-val').innerText = `$${total.toLocaleString()}`;
+    
+    closeModal('modal-cart');
+    
+    document.getElementById('wallet-form').classList.remove('hidden');
+    document.getElementById('wallet-processing').classList.add('hidden');
+    
+    openModal('modal-wallet-confirm');
 }
 
+async function processWalletPayment() {
+    const name = document.getElementById('w-pay-name').value.trim();
+    const phone = document.getElementById('w-pay-phone').value.trim();
+    const total = Object.values(cart).reduce((sum, p) => sum + (p.price * p.qty), 0);
+    
+    if(!name || phone.length < 10) return showToast("INGRESA TUS NOMBRES Y WHATSAPP VÁLIDO");
+    if(currentUser.balance < total) return showToast("SALDO INSUFICIENTE");
+
+    // Muestra animación de procesando
+    document.getElementById('wallet-form').classList.add('hidden');
+    document.getElementById('wallet-processing').classList.remove('hidden');
+
+    // Descuenta el saldo en la base de datos
+    await db.collection("usuarios").doc(myUserId).update({ 
+        balance: firebase.firestore.FieldValue.increment(-total) 
+    });
+    
+    const token = "WAL-" + Math.random().toString(36).substr(2,5).toUpperCase();
+    let details = Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', ');
+    addLog(`TOKEN: ${token}`, `WALLET: ${details} | Total: $${total}`);
+    
+    // Envia la info completa a Telegram (Incluyendo WhatsApp)
+    let tgMsg = `🟢 *COMPRA FINALIZADA (BILLETERA)* 🟢\n\n*Token:* ${token}\n*Cliente:* ${name} (${phone})\n*ID Usuario:* #${myUserId}\n*Servicios:* ${details}\n*Total Descontado:* $${total}`;
+    sendTelegramNotification(tgMsg);
+
+    // Finaliza
+    setTimeout(() => {
+        cart = {}; 
+        updateCartUI(); 
+        closeModal('modal-wallet-confirm'); 
+        showToast("¡COMPRA EXITOSA CON SALDO!");
+    }, 1500);
+}
+
+// --- FLUJO DE NEQUI (Se mantiene igual) ---
 function goToPayment() {
     if(Object.keys(cart).length === 0) return showToast("CARRITO VACÍO");
     closeModal('modal-cart'); openModal('modal-nequi');
@@ -806,7 +847,6 @@ function buyDirectNequi(id) {
     closeModal('modal-detail'); openModal('modal-nequi');
 }
 
-// NUEVA LÓGICA: Pasarela hacia Comprobante en vez de abrir WhatsApp directo
 function processPayment() {
     const name = document.getElementById('pay-name').value.trim();
     const phone = document.getElementById('pay-phone').value.trim();
@@ -830,7 +870,6 @@ function processPayment() {
         closeModal('modal-nequi');
         showReceiptModal(`Envía $${total.toLocaleString()} al NEQUI 3137084357 para completar tu orden.`);
         
-        // Reseteamos el modal para el futuro
         document.getElementById('nequi-form').classList.remove('hidden');
         document.getElementById('nequi-processing').classList.add('hidden');
     }, 2500); 
@@ -840,5 +879,4 @@ function processPayment() {
 function addLog(action, item) {
     const log = document.getElementById('log-table');
     if(log) log.innerHTML = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${action}</td><td>${item}</td></tr>` + log.innerHTML;
-            }
-
+}
