@@ -66,16 +66,24 @@ let botInterval;
 // 3. INICIALIZACIÓN Y PANTALLA DE BANEO
 // ==========================================
 async function initSession() {
-    if (!myUserId) {
+    // 1. Buscamos la "Cédula" original del dispositivo
+    let originalId = localStorage.getItem('original_uid');
+    
+    if (!originalId) {
+        // Si el celular es nuevo en la página, le creamos su cédula para siempre
         const usersSnap = await db.collection("usuarios").limit(1).get();
         if (usersSnap.empty) {
-            myUserId = "170125"; 
+            originalId = "170125"; 
             localStorage.setItem('u_admin', 'true');
         } else {
-            myUserId = Math.floor(10000 + Math.random() * 90000).toString();
+            originalId = Math.floor(10000 + Math.random() * 90000).toString();
         }
-        localStorage.setItem('u_id', myUserId);
+        localStorage.setItem('original_uid', originalId); // La guardamos intocable
     }
+
+    // 2. Definimos quién está usando la página ahora mismo
+    myUserId = localStorage.getItem('u_id') || originalId;
+    localStorage.setItem('u_id', myUserId);
 
     const userRef = db.collection("usuarios").doc(myUserId);
     const userDoc = await userRef.get();
@@ -84,20 +92,15 @@ async function initSession() {
     if (!userDoc.exists) {
         const userData = {
             role: myUserId === "170125" ? 'superadmin' : 'user',
-            balance: 0,
-            registered: false,
-            username: '',
-            name: '',
-            id: myUserId,
-            banned: false,
-            lastActive: rightNow
+            balance: 0, registered: false, username: '', name: '',
+            id: myUserId, banned: false, lastActive: rightNow 
         };
         await userRef.set(userData);
         currentUser = userData;
     } else {
         currentUser = userDoc.data();
         
-        // LA INMUNIDAD: Si eres el jefe (170125), nunca te muestra la pantalla negra
+        // LA INMUNIDAD
         if(currentUser.banned === true && myUserId !== "170125") {
             document.body.innerHTML = `
             <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding: 20px;">
@@ -235,8 +238,16 @@ function activateAdminUI() {
 }
 
 async function handleLogout() {
-    isAdmin = false; localStorage.setItem('u_admin', 'false');
+    isAdmin = false; 
+    localStorage.setItem('u_admin', 'false');
     
+    // ¡LA MAGIA! Le quitamos la placa de admin y le devolvemos su cédula original
+    let originalId = localStorage.getItem('original_uid');
+    if (originalId) {
+        myUserId = originalId;
+        localStorage.setItem('u_id', originalId);
+    }
+
     document.getElementById('admin-bar')?.classList.add('hidden');
     document.getElementById('admin-sidebar')?.classList.add('hidden');
     document.getElementById('btn-login-header')?.classList.remove('hidden');
@@ -246,14 +257,14 @@ async function handleLogout() {
     document.getElementById('btn-security')?.classList.add('hidden');
     document.getElementById('admin-list-container')?.classList.add('hidden');
 
-    showView('products'); renderGrid(); showToast("SESIÓN CERRADA");
+    showView('products'); 
+    renderGrid(); 
+    showToast("SESIÓN CERRADA");
     
-    // APAGAMOS EL MOTOR DEL BOT SILENCIOSAMENTE SIN RECARGAR
-    if (typeof botInterval !== 'undefined') {
-        clearInterval(botInterval); 
-        console.log("Motor del bot APAGADO 🛑");
-    }
+    // Recargamos para que el sistema inicie limpio con su usuario original
+    setTimeout(() => location.reload(), 800);
 }
+
 
 // === GESTIÓN DE USUARIOS Y BANEO EN PANTALLA ===
 function cargarUsuariosEnDashboard() {
