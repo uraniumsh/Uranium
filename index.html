@@ -62,7 +62,7 @@
                 <div class="product-grid" id="product-grid"></div>
             </section>
 
-            <section id="view-dashboard" class="view-section hidden">
+                        <section id="view-dashboard" class="view-section hidden">
                 <h2>PANEL DE ÓRDENES Y DASHBOARD</h2>
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO MANUAL</button>
@@ -71,17 +71,30 @@
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">GESTIÓN ADMINS</button>
                     <button id="btn-security" class="btn-primary hidden" style="width: auto; padding: 10px; font-size: 12px; background: #000; color: white; border: 1px solid #D4AF37;" onclick="openModal('modal-security')">🔐 SEGURIDAD SÚPER ADMIN</button>
                 </div>
+                
                 <div id="admin-list-container" class="hidden" style="margin-bottom: 20px; border: var(--border); padding: 10px;">
                     <h3 style="margin-bottom: 10px;">ADMINISTRADORES ACTIVOS</h3>
                     <div id="admins-render-area" style="font-size: 11px;"></div>
                 </div>
+
+                <div style="margin-bottom: 20px; border: var(--border); padding: 10px; background: var(--bg-color);">
+                    <h3 style="margin-bottom: 10px;">👥 REGISTRO GENERAL DE USUARIOS</h3>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="brutalist-table">
+                            <thead><tr><th>ID / USUARIO</th><th>SALDO</th><th>ESTADO / ACCIÓN</th></tr></thead>
+                            <tbody id="users-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 10px;">LOG DE MOVIMIENTOS</h3>
                 <div class="table-container">
                     <table class="brutalist-table">
                         <thead><tr><th>TOKEN / HORA</th><th>ACCIÓN</th><th>DETALLE / VALOR</th></tr></thead>
                         <tbody id="log-table"></tbody>
                     </table>
                 </div>
-            </section>
+                        </section>
 
             <section id="view-foro" class="view-section hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
