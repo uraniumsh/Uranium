@@ -155,15 +155,16 @@ window.onload = initSession;
 // 6. LOGIN, SEGURIDAD Y ADMINISTRACIÓN FIREBASE
 // ==========================================
 async function handleLogin() {
-    const em = document.getElementById('l-email').value;
-    const pa = document.getElementById('l-pass').value;
+    // .trim() quita espacios fantasma y .toLowerCase() fuerza minúsculas
+    const em = document.getElementById('l-email').value.trim().toLowerCase();
+    const pa = document.getElementById('l-pass').value.trim();
     
     if(!em || !pa) return showToast("INGRESA DATOS");
 
     try {
         // 1. Verificar si es el Súper Admin en Firestore
         const saDoc = await db.collection("usuarios").doc("170125").get();
-        if(saDoc.exists && saDoc.data().adminEmail === em && saDoc.data().adminPass === pa) {
+        if(saDoc.exists && saDoc.data().adminEmail.toLowerCase() === em && saDoc.data().adminPass === pa) {
             myUserId = "170125";
             localStorage.setItem('u_id', myUserId);
             currentUser = saDoc.data();
@@ -240,9 +241,9 @@ async function handleLogout() {
 
 async function addSubAdmin() {
     if(currentUser?.role !== "superadmin") return showToast("ACCESO DENEGADO");
-    const id = document.getElementById('new-admin-id').value;
-    const email = document.getElementById('new-admin-email').value;
-    const pass = document.getElementById('new-admin-pass').value;
+    const id = document.getElementById('new-admin-id').value.trim();
+    const email = document.getElementById('new-admin-email').value.trim().toLowerCase();
+    const pass = document.getElementById('new-admin-pass').value.trim();
     
     if(!id || !email || !pass) return showToast("DATOS INCOMPLETOS");
     
@@ -285,7 +286,7 @@ async function deleteAdmin(docId) {
 async function updateSuperAdminCreds() {
     if(currentUser?.role !== "superadmin") return showToast("SOLO SÚPER ADMIN");
     
-    const newEmail = document.getElementById('sec-new-email').value.trim();
+    const newEmail = document.getElementById('sec-new-email').value.trim().toLowerCase();
     const newPass = document.getElementById('sec-new-pass').value.trim();
     
     if(!newEmail || !newPass) return showToast("INGRESA AMBOS DATOS");
@@ -328,9 +329,9 @@ function updateProfileUI() {
     const rSec = document.getElementById('register-section');
 
     if(pId) pId.innerText = myUserId;
-    if(pName) pName.innerText = currentUser.registered ? currentUser.name : "INVITADO";
-    if(wBal) wBal.innerText = `$${(currentUser.balance || 0).toLocaleString()}`;
-    if(currentUser.registered && rSec) rSec.classList.add('hidden');
+    if(pName) pName.innerText = currentUser?.registered ? currentUser.name : "INVITADO";
+    if(wBal) wBal.innerText = `$${(currentUser?.balance || 0).toLocaleString()}`;
+    if(currentUser?.registered && rSec) rSec.classList.add('hidden');
 }
 
 async function registerUser() {
@@ -353,7 +354,7 @@ async function registerUser() {
 
 async function addBalanceToUser() {
     if(!isAdmin) return;
-    const id = document.getElementById('bal-user-id').value;
+    const id = document.getElementById('bal-user-id').value.trim();
     const amt = parseInt(document.getElementById('bal-amount').value);
     
     if(!id || isNaN(amt)) return showToast("DATOS INVÁLIDOS");
@@ -371,7 +372,7 @@ async function addBalanceToUser() {
 // 8. PRODUCTOS, CATEGORÍAS Y ELIMINACIÓN
 // ==========================================
 async function saveNewCategory() {
-    const name = document.getElementById('new-cat-name').value;
+    const name = document.getElementById('new-cat-name').value.trim();
     if(name) {
         await db.collection("categorias").add({ name: name.toUpperCase() });
         closeModal('modal-add-cat'); showToast("CATEGORÍA CREADA");
@@ -385,7 +386,12 @@ function openPublishModal(id = null) {
 
     if(id) {
         document.getElementById('pub-title').innerText = "EDITAR PRODUCTO";
-        if(btnDelete) btnDelete.classList.remove('hidden'); 
+        
+        // Muestra el botón borrar si estás editando
+        if(btnDelete) {
+            btnDelete.classList.remove('hidden');
+            btnDelete.style.display = 'block';
+        }
         
         const p = products.find(prod => prod.id.toString() === id.toString());
         if(!p) return;
@@ -408,7 +414,12 @@ function openPublishModal(id = null) {
         }
     } else {
         document.getElementById('pub-title').innerText = "NUEVA PUBLICACIÓN";
-        if(btnDelete) btnDelete.classList.add('hidden'); 
+        
+        // Oculta el botón borrar si es un producto nuevo
+        if(btnDelete) {
+            btnDelete.classList.add('hidden');
+            btnDelete.style.display = 'none';
+        }
         resetForm();
     }
     openModal('modal-publish');
@@ -438,7 +449,7 @@ function previewImage() {
 }
 
 async function handleSaveProduct() {
-    const name = document.getElementById('p-name').value;
+    const name = document.getElementById('p-name').value.trim();
     const price = document.getElementById('p-price').value;
     const nequiInput = document.getElementById('p-nequi-dest').value.trim();
     
@@ -449,10 +460,10 @@ async function handleSaveProduct() {
     const data = {
         name, 
         price: parseFloat(price),
-        short: document.getElementById('p-short').value,
-        desc: document.getElementById('p-desc').value,
-        contact: document.getElementById('p-contact').value || "3128194596",
-        wa: document.getElementById('p-wa').value || `Hola URANIUM, me interesa ${name}`,
+        short: document.getElementById('p-short').value.trim(),
+        desc: document.getElementById('p-desc').value.trim(),
+        contact: document.getElementById('p-contact').value.trim() || "3128194596",
+        wa: document.getElementById('p-wa').value.trim() || `Hola URANIUM, me interesa ${name}`,
         nequiDest: nequiInput || "3128194596", 
         catId: document.getElementById('p-cat-select').value,
         pinned: document.getElementById('p-pinned').checked, 
@@ -531,6 +542,7 @@ function renderAll() {
     
     renderGrid();
         }
+        
 
 // ==========================================
 // 10. PUBLICACIÓN Y EDICIÓN DE PRODUCTOS
