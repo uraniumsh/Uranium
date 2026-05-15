@@ -152,103 +152,174 @@ function showView(view) {
 window.onload = initSession;
 
 // ==========================================
-// 6. LOGIN Y ADMINISTRACIÓN
+// 6. LOGIN, SEGURIDAD Y ADMINISTRACIÓN FIREBASE
 // ==========================================
 async function handleLogin() {
     const em = document.getElementById('l-email').value;
     const pa = document.getElementById('l-pass').value;
     
-    // Validar Súper Admin (Juan Rivera)
-    if(em === 'juanrivera@urm.co' && pa === '1234') {
-        myUserId = "170125";
-        localStorage.setItem('u_id', myUserId);
-        
-        const userRef = db.collection("usuarios").doc(myUserId);
-        const userDoc = await userRef.get();
-        
-        if(!userDoc.exists) {
-            const newData = { role: 'superadmin', balance: 0, registered: true, username: 'juanrivera', name: 'JUAN RIVERA', id: myUserId };
-            await userRef.set(newData);
-            currentUser = newData;
-        } else {
-            await userRef.update({ role: 'superadmin' });
-            currentUser = userDoc.data();
-            currentUser.role = 'superadmin';
-        }
-        
-        isAdmin = true; localStorage.setItem('u_admin', 'true');
-        activateAdminUI(); closeModal('modal-settings'); showToast("MODO SÚPER ADMIN ACTIVO"); 
-        updateProfileUI(); 
-        escucharDatos(); // Reconectar
-        return;
-    }
+    if(!em || !pa) return showToast("INGRESA DATOS");
 
-    // Validar Sub-Admins
-    let isValidSub = subAdmins.some(a => a.email === em && a.pass === pa);
-    if(isValidSub) {
-        isAdmin = true; localStorage.setItem('u_admin', 'true');
-        await db.collection("usuarios").doc(myUserId).update({ role: 'admin' });
-        currentUser.role = 'admin';
-        activateAdminUI(); closeModal('modal-settings'); showToast("MODO ADMIN ACTIVO");
-    } else {
-        showToast("CREDENCIALES INVÁLIDAS");
+    try {
+        // 1. Verificar si es el Súper Admin en Firestore
+        const saDoc = await db.collection("usuarios").doc("170125").get();
+        if(saDoc.exists && saDoc.data().adminEmail === em && saDoc.data().adminPass === pa) {
+            myUserId = "170125";
+            localStorage.setItem('u_id', myUserId);
+            currentUser = saDoc.data();
+            isAdmin = true; 
+            localStorage.setItem('u_admin', 'true');
+            
+            activateAdminUI(); 
+            closeModal('modal-settings'); 
+            showToast("MODO SÚPER ADMIN ACTIVO"); 
+            updateProfileUI(); 
+            escucharDatos(); 
+            return;
+        }
+
+        // 2. Verificar si es un Sub-Admin en Firebase
+        const adminsSnap = await db.collection("admins").where("email", "==", em).where("pass", "==", pa).get();
+        if(!adminsSnap.empty) {
+            const adminData = adminsSnap.docs[0].data();
+            myUserId = adminData.id; 
+            localStorage.setItem('u_id', myUserId);
+            isAdmin = true; 
+            localStorage.setItem('u_admin', 'true');
+            
+            await db.collection("usuarios").doc(myUserId).set({ role: 'admin' }, { merge: true });
+            
+            activateAdminUI(); 
+            closeModal('modal-settings'); 
+            showToast("MODO ADMIN ACTIVO");
+            escucharDatos();
+        } else {
+            showToast("CREDENCIALES INVÁLIDAS");
+        }
+    } catch (error) {
+        showToast("ERROR AL INICIAR SESIÓN");
+        console.error(error);
     }
 }
 
 function activateAdminUI() {
-    const adminBar = document.getElementById('admin-bar');
-    const adminSidebar = document.getElementById('admin-sidebar');
-    const btnLogin = document.getElementById('btn-login-header');
-    const btnLogout = document.getElementById('btn-logout-header');
-    const roleBadge = document.getElementById('admin-role-badge');
+    document.getElementById('admin-bar')?.classList.remove('hidden');
+    document.getElementById('admin-sidebar')?.classList.remove('hidden');
+    document.getElementById('btn-login-header')?.classList.add('hidden');
+    document.getElementById('btn-logout-header')?.classList.remove('hidden');
+    document.getElementById('login-box')?.classList.add('hidden');
+    document.getElementById('logout-box')?.classList.remove('hidden');
 
-    if(adminBar) adminBar.classList.remove('hidden');
-    if(adminSidebar) adminSidebar.classList.remove('hidden');
-    if(btnLogin) btnLogin.classList.add('hidden');
-    if(btnLogout) btnLogout.classList.remove('hidden');
-    
-    // Ocultar caja de login si el modal se abre
-    const loginBox = document.getElementById('login-box');
-    const logoutBox = document.getElementById('logout-box');
-    if(loginBox) loginBox.classList.add('hidden');
-    if(logoutBox) logoutBox.classList.remove('hidden');
-
-    if(roleBadge && currentUser) {
-        roleBadge.innerText = currentUser.role === 'superadmin' ? "SÚPER ADMIN (170125)" : "ADMINISTRADOR";
+    if(currentUser) {
+        const badge = document.getElementById('admin-role-badge');
+        if(badge) badge.innerText = currentUser.role === 'superadmin' ? "SÚPER ADMIN" : "ADMINISTRADOR";
+        
+        if(currentUser.role === 'superadmin') {
+            document.getElementById('btn-security')?.classList.remove('hidden');
+            document.getElementById('admin-list-container')?.classList.remove('hidden');
+            cargarAdminsEnDashboard(); 
+        }
     }
 }
 
 async function handleLogout() {
-    isAdmin = false; localStorage.setItem('u_admin', 'false');
-    await db.collection("usuarios").doc(myUserId).update({ role: 'user' });
-    currentUser.role = 'user';
+    isAdmin = false; 
+    localStorage.setItem('u_admin', 'false');
     
-    document.getElementById('admin-bar').classList.add('hidden');
-    document.getElementById('admin-sidebar').classList.add('hidden');
-    document.getElementById('btn-login-header').classList.remove('hidden');
-    document.getElementById('btn-logout-header').classList.add('hidden');
-    
-    const loginBox = document.getElementById('login-box');
-    const logoutBox = document.getElementById('logout-box');
-    if(loginBox) loginBox.classList.remove('hidden');
-    if(logoutBox) logoutBox.classList.add('hidden');
+    document.getElementById('admin-bar')?.classList.add('hidden');
+    document.getElementById('admin-sidebar')?.classList.add('hidden');
+    document.getElementById('btn-login-header')?.classList.remove('hidden');
+    document.getElementById('btn-logout-header')?.classList.add('hidden');
+    document.getElementById('login-box')?.classList.remove('hidden');
+    document.getElementById('logout-box')?.classList.add('hidden');
+    document.getElementById('btn-security')?.classList.add('hidden');
+    document.getElementById('admin-list-container')?.classList.add('hidden');
 
     showView('products'); renderGrid(); showToast("SESIÓN CERRADA");
 }
 
-function addSubAdmin() {
-    if(currentUser.role !== "superadmin") return showToast("SOLO SÚPER ADMIN PUEDE GESTIONAR ESTO");
+async function addSubAdmin() {
+    if(currentUser?.role !== "superadmin") return showToast("ACCESO DENEGADO");
     const id = document.getElementById('new-admin-id').value;
     const email = document.getElementById('new-admin-email').value;
     const pass = document.getElementById('new-admin-pass').value;
+    
     if(!id || !email || !pass) return showToast("DATOS INCOMPLETOS");
-    subAdmins.push({ id, email, pass });
-    localStorage.setItem('u_subadmins', JSON.stringify(subAdmins));
-    showToast("ADMIN AGREGADO CON ÉXITO"); closeModal('modal-manage-admins');
+    
+    await db.collection("admins").doc(id).set({ id, email, pass });
+    
+    showToast("ADMIN AGREGADO CON ÉXITO"); 
+    closeModal('modal-manage-admins');
+    cargarAdminsEnDashboard();
 }
 
+async function cargarAdminsEnDashboard() {
+    const area = document.getElementById('admins-render-area');
+    if(!area) return;
+    
+    db.collection("admins").onSnapshot(snap => {
+        area.innerHTML = '';
+        if(snap.empty) {
+            area.innerHTML = '<p>No hay sub-administradores activos.</p>';
+            return;
+        }
+        snap.forEach(doc => {
+            const data = doc.data();
+            area.innerHTML += `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding: 5px 0;">
+                <div><strong>ID:</strong> ${data.id} | <strong>Correo:</strong> ${data.email}</div>
+                <button onclick="deleteAdmin('${doc.id}')" style="background:red; color:white; border:none; padding:5px; cursor:pointer; font-weight:bold;">X</button>
+            </div>`;
+        });
+    });
+}
+
+async function deleteAdmin(docId) {
+    if(confirm("¿Estás seguro de eliminar a este administrador?")) {
+        await db.collection("admins").doc(docId).delete();
+        await db.collection("usuarios").doc(docId).update({ role: 'user' });
+        showToast("ADMIN ELIMINADO");
+    }
+}
+
+async function updateSuperAdminCreds() {
+    if(currentUser?.role !== "superadmin") return showToast("SOLO SÚPER ADMIN");
+    
+    const newEmail = document.getElementById('sec-new-email').value.trim();
+    const newPass = document.getElementById('sec-new-pass').value.trim();
+    
+    if(!newEmail || !newPass) return showToast("INGRESA AMBOS DATOS");
+
+    await db.collection("usuarios").doc("170125").update({
+        adminEmail: newEmail,
+        adminPass: newPass
+    });
+
+    closeModal('modal-security');
+    showToast("¡CREDENCIALES ACTUALIZADAS CON ÉXITO!");
+    document.getElementById('sec-new-email').value = '';
+    document.getElementById('sec-new-pass').value = '';
+}
+
+async function inicializarSuperAdminSeguro() {
+    const saDoc = await db.collection("usuarios").doc("170125").get();
+    if (!saDoc.exists || !saDoc.data().adminEmail) {
+        await db.collection("usuarios").doc("170125").set({
+            role: 'superadmin',
+            balance: 0,
+            registered: true,
+            username: 'admin',
+            name: 'SÚPER ADMIN',
+            id: "170125",
+            adminEmail: 'admin@uranium.co', 
+            adminPass: '1234'               
+        }, { merge: true });
+    }
+}
+inicializarSuperAdminSeguro();
+
 // ==========================================
-// 7. PERFIL Y BILLETERA (CON FIREBASE)
+// 7. PERFIL Y BILLETERA (FIREBASE)
 // ==========================================
 function updateProfileUI() {
     const pId = document.getElementById('profile-id');
@@ -258,7 +329,7 @@ function updateProfileUI() {
 
     if(pId) pId.innerText = myUserId;
     if(pName) pName.innerText = currentUser.registered ? currentUser.name : "INVITADO";
-    if(wBal) wBal.innerText = `$${currentUser.balance.toLocaleString()}`;
+    if(wBal) wBal.innerText = `$${(currentUser.balance || 0).toLocaleString()}`;
     if(currentUser.registered && rSec) rSec.classList.add('hidden');
 }
 
@@ -267,7 +338,6 @@ async function registerUser() {
     const name = document.getElementById('reg-name').value.trim();
     if(!user || !name) return showToast("LLENA TODOS LOS DATOS");
     
-    // Verificar si existe el username en Firebase
     const usersRef = db.collection("usuarios");
     const snapshot = await usersRef.where("username", "==", user).get();
     if (!snapshot.empty) return showToast("EL USUARIO YA EXISTE");
@@ -278,7 +348,6 @@ async function registerUser() {
         registered: true,
         balance: firebase.firestore.FieldValue.increment(5000)
     });
-
     showToast("¡REGISTRO EXITOSO! +$5000 AÑADIDOS A LA BILLETERA");
 }
 
@@ -291,18 +360,15 @@ async function addBalanceToUser() {
 
     const userRef = db.collection("usuarios").doc(id);
     const doc = await userRef.get();
-    if(!doc.exists) return showToast("USUARIO NO ENCONTRADO EN LA BASE DE DATOS");
+    if(!doc.exists) return showToast("USUARIO NO ENCONTRADO EN LA BD");
 
-    await userRef.update({
-        balance: firebase.firestore.FieldValue.increment(amt)
-    });
-    
+    await userRef.update({ balance: firebase.firestore.FieldValue.increment(amt) });
     showToast(`$${amt} RECARGADOS AL ID #${id}`); 
     closeModal('modal-add-balance');
 }
 
 // ==========================================
-// 8. PRODUCTOS Y CATEGORÍAS (FIREBASE)
+// 8. PRODUCTOS, CATEGORÍAS Y ELIMINACIÓN
 // ==========================================
 async function saveNewCategory() {
     const name = document.getElementById('new-cat-name').value;
@@ -315,9 +381,13 @@ async function saveNewCategory() {
 
 function openPublishModal(id = null) {
     editingId = id;
+    const btnDelete = document.getElementById('btn-delete-product');
+
     if(id) {
         document.getElementById('pub-title').innerText = "EDITAR PRODUCTO";
-        const p = products.find(prod => prod.id === id);
+        if(btnDelete) btnDelete.classList.remove('hidden'); 
+        
+        const p = products.find(prod => prod.id.toString() === id.toString());
         if(!p) return;
         
         document.getElementById('p-name').value = p.name || "";
@@ -327,7 +397,7 @@ function openPublishModal(id = null) {
         document.getElementById('p-desc').value = p.desc || "";
         document.getElementById('p-contact').value = p.contact || "";
         document.getElementById('p-wa').value = p.wa || "";
-        document.getElementById('p-nequi-dest').value = p.nequiDest || "";
+        document.getElementById('p-nequi-dest').value = p.nequiDest || ""; 
         document.getElementById('p-pinned').checked = p.pinned || false;
         
         currentImg = p.img || "";
@@ -338,9 +408,19 @@ function openPublishModal(id = null) {
         }
     } else {
         document.getElementById('pub-title').innerText = "NUEVA PUBLICACIÓN";
+        if(btnDelete) btnDelete.classList.add('hidden'); 
         resetForm();
     }
     openModal('modal-publish');
+}
+
+async function deleteProduct() {
+    if(!editingId) return;
+    if(confirm("¿Seguro que quieres eliminar este producto de la tienda para siempre?")) {
+        await db.collection("productos").doc(editingId.toString()).delete();
+        closeModal('modal-publish');
+        showToast("PRODUCTO ELIMINADO 🗑️");
+    }
 }
 
 function previewImage() {
@@ -360,33 +440,35 @@ function previewImage() {
 async function handleSaveProduct() {
     const name = document.getElementById('p-name').value;
     const price = document.getElementById('p-price').value;
+    const nequiInput = document.getElementById('p-nequi-dest').value.trim();
     
     if(!currentImg || !name || !price) return showToast("FOTO, NOMBRE Y PRECIO OBLIGATORIOS");
 
+    const existingP = editingId ? products.find(p => p.id.toString() === editingId.toString()) : {};
+    
     const data = {
         name, 
         price: parseFloat(price),
         short: document.getElementById('p-short').value,
         desc: document.getElementById('p-desc').value,
-        contact: document.getElementById('p-contact').value || "3137074357",
+        contact: document.getElementById('p-contact').value || "3128194596",
         wa: document.getElementById('p-wa').value || `Hola URANIUM, me interesa ${name}`,
-        nequiDest: document.getElementById('p-nequi-dest').value || "3137074357",
+        nequiDest: nequiInput || "3128194596", 
         catId: document.getElementById('p-cat-select').value,
         pinned: document.getElementById('p-pinned').checked, 
-        img: currentImg
+        img: currentImg,
+        reactions: existingP.reactions || {}, 
+        comments: existingP.comments || []
     };
 
     if(editingId) {
-        await db.collection("productos").doc(editingId).update(data);
+        await db.collection("productos").doc(editingId.toString()).update(data);
     } else {
-        // Inicializar social stats en productos nuevos
-        data.reactions = {};
-        data.comments = [];
         await db.collection("productos").add(data);
     }
 
     closeModal('modal-publish'); 
-    showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO");
+    showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO"); 
 }
 
 function resetForm() {
@@ -437,15 +519,18 @@ function renderAll() {
         navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + 
                           categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
     }
+    
     if(navMob) {
         navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + 
                            categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
     }
+    
     if(sel) {
         sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     }
+    
     renderGrid();
-}
+        }
 
 // ==========================================
 // 10. PUBLICACIÓN Y EDICIÓN DE PRODUCTOS
