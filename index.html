@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>URANIUM DIGITAL | Store Pro</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        @media (min-width: 768px) {
+            #mobile-nav-cats { display: none !important; }
+            .layout { display: flex; flex-direction: row; }
+            .content { order: 1; flex: 1; }
+            .sidebar { order: 2; width: 260px; border-left: var(--border); border-right: none; }
+        }
+        .forum-card {
+            border: var(--border); padding: 15px; margin-bottom: 15px; background: var(--bg-color);
+        }
+        .forum-card-header {
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
 
@@ -47,7 +63,6 @@
 
             <section id="view-dashboard" class="view-section hidden">
                 <h2>PANEL DE ÓRDENES Y DASHBOARD</h2>
-                
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #25d366; color: white;" onclick="openModal('modal-add-balance')">+ AÑADIR SALDO MANUAL</button>
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openModal('modal-add-cat')">+ CREAR CATEGORÍA</button>
@@ -55,20 +70,25 @@
                     <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #555; color: white;" onclick="openModal('modal-manage-admins')">GESTIÓN ADMINS</button>
                     <button id="btn-security" class="btn-primary hidden" style="width: auto; padding: 10px; font-size: 12px; background: #000; color: white; border: 1px solid #D4AF37;" onclick="openModal('modal-security')">🔐 SEGURIDAD SÚPER ADMIN</button>
                 </div>
-
                 <div id="admin-list-container" class="hidden" style="margin-bottom: 20px; border: var(--border); padding: 10px;">
                     <h3 style="margin-bottom: 10px;">ADMINISTRADORES ACTIVOS</h3>
                     <div id="admins-render-area" style="font-size: 11px;"></div>
                 </div>
-
                 <div class="table-container">
                     <table class="brutalist-table">
-                        <thead>
-                            <tr><th>TOKEN / HORA</th><th>ACCIÓN</th><th>DETALLE / VALOR</th></tr>
-                        </thead>
+                        <thead><tr><th>TOKEN / HORA</th><th>ACCIÓN</th><th>DETALLE / VALOR</th></tr></thead>
                         <tbody id="log-table"></tbody>
                     </table>
                 </div>
+            </section>
+
+            <section id="view-foro" class="view-section hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>FORO Y ANUNCIOS 💬</h2>
+                    <button class="btn-primary" style="width: auto; padding: 10px; font-size: 12px; background: #da0081; color: white;" onclick="openForumModal()">+ NUEVO DEBATE</button>
+                </div>
+                <div id="forum-feed">
+                    </div>
             </section>
         </main>
 
@@ -81,6 +101,7 @@
                 <span class="group-title">SISTEMA ADMIN</span>
                 <nav class="nav-links">
                     <a href="#" onclick="showView('dashboard')">IR AL DASHBOARD -></a>
+                    <a href="#" onclick="showView('foro')">FORO / ANUNCIOS 💬</a>
                 </nav>
             </div>
         </aside>
@@ -99,7 +120,6 @@
                     <button class="btn-primary" style="margin-top: 15px; font-size: 11px; padding: 10px; background: #25d366; color: white;" onclick="openUserRecharge()">+ RECARGAR MI SALDO</button>
                 </div>
             </div>
-            
             <div id="register-section" class="admin-form" style="margin-top: 20px; border-top: var(--border); padding-top: 15px;">
                 <p style="font-size: 10px; margin-bottom: 10px; color: #da0081; font-weight: bold;">REGÍSTRATE Y GANA $5,000 COP</p>
                 <input type="text" id="reg-username" placeholder="@USUARIO (ÚNICO)">
@@ -115,12 +135,12 @@
             <h2>RECARGAR MI SALDO</h2>
             <div id="recharge-form" class="admin-form" style="margin-top: 15px;">
                 <input type="text" id="r-name" placeholder="TUS NOMBRES Y APELLIDOS">
+                <input type="number" id="r-phone" placeholder="TU NÚMERO DE WHATSAPP">
                 <input type="number" id="r-amount" placeholder="MONTO A RECARGAR ($)">
                 <button class="btn-primary" style="background: #25d366; color: white;" onclick="processRecharge()">CONTINUAR</button>
             </div>
             <div id="recharge-processing" class="hidden" style="text-align: center; padding: 20px 0;">
-                <div class="spinner"></div>
-                <h3 style="margin-top: 15px;">PROCESANDO SOLICITUD...</h3>
+                <div class="spinner"></div><h3 style="margin-top: 15px;">PROCESANDO SOLICITUD...</h3>
             </div>
         </div>
     </div>
@@ -138,20 +158,17 @@
                     <img id="receipt-preview" class="hidden" style="width: 100%; height: 100%; object-fit: contain;">
                 </div>
                 <input type="file" id="receipt-file-input" accept="image/*" class="hidden" onchange="previewReceipt()">
-                
                 <button class="btn-primary" onclick="submitReceipt()">ENVIAR COMPROBANTE</button>
             </div>
             <div id="receipt-processing" class="hidden" style="text-align: center; padding: 20px 0;">
-                <div class="spinner"></div>
-                <h3 style="margin-top: 15px;">ENVIANDO COMPROBANTE...</h3>
+                <div class="spinner"></div><h3 style="margin-top: 15px;">ENVIANDO COMPROBANTE...</h3>
                 <p style="font-size: 10px;">Por favor, no cierres esta ventana</p>
             </div>
         </div>
     </div>
 
     <div id="modal-manage-admins" class="modal hidden">
-        <div class="modal-content narrow">
-            <span class="close" onclick="closeModal('modal-manage-admins')">×</span>
+        <div class="modal-content narrow"><span class="close" onclick="closeModal('modal-manage-admins')">×</span>
             <h2>GESTIÓN ADMINS</h2>
             <div class="admin-form">
                 <input type="text" id="new-admin-id" placeholder="ID DEL USUARIO">
@@ -163,8 +180,7 @@
     </div>
 
     <div id="modal-add-balance" class="modal hidden">
-        <div class="modal-content narrow">
-            <span class="close" onclick="closeModal('modal-add-balance')">×</span>
+        <div class="modal-content narrow"><span class="close" onclick="closeModal('modal-add-balance')">×</span>
             <h2>RECARGAR SALDO MANUAL</h2>
             <div class="admin-form">
                 <input type="text" id="bal-user-id" placeholder="ID DEL USUARIO">
@@ -175,8 +191,7 @@
     </div>
 
     <div id="modal-add-cat" class="modal hidden">
-        <div class="modal-content narrow">
-            <span class="close" onclick="closeModal('modal-add-cat')">×</span>
+        <div class="modal-content narrow"><span class="close" onclick="closeModal('modal-add-cat')">×</span>
             <h2>NUEVA CATEGORÍA</h2>
             <div class="admin-form">
                 <input type="text" id="new-cat-name" placeholder="NOMBRE DE PLATAFORMA">
@@ -186,8 +201,7 @@
     </div>
 
     <div id="modal-delete-cat" class="modal hidden">
-        <div class="modal-content narrow">
-            <span class="close" onclick="closeModal('modal-delete-cat')">×</span>
+        <div class="modal-content narrow"><span class="close" onclick="closeModal('modal-delete-cat')">×</span>
             <h2>ELIMINAR CATEGORÍA</h2>
             <div class="admin-form" style="margin-top: 15px;">
                 <select id="d-cat-select"></select>
@@ -206,7 +220,6 @@
                     <img id="file-preview" class="hidden">
                 </div>
                 <input type="file" id="file-input" accept="image/*" class="hidden" onchange="previewImage()">
-                
                 <input type="text" id="p-name" placeholder="NOMBRE (Ej: NETFLIX)">
                 <textarea id="p-short" placeholder="SLOGAN (Máx 2 párrafos)"></textarea>
                 <input type="number" id="p-price" placeholder="PRECIO ($)">
@@ -216,25 +229,23 @@
                 <input type="text" id="p-wa" placeholder="MSJ PREDETERMINADO WHATSAPP">
                 
                 <div class="checkbox-group">
-                    <input type="checkbox" id="p-pinned"> 
-                    <label for="p-pinned">⭐ FIJAR PUBLICACIÓN AL INICIO</label>
+                    <input type="checkbox" id="p-pinned"> <label for="p-pinned">⭐ FIJAR PUBLICACIÓN AL INICIO</label>
                 </div>
-                <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR PRODUCTO</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="handleSaveProduct()">GUARDAR</button>
+                    <button id="btn-delete-product" class="btn-primary hidden" style="background: red;" onclick="deleteProduct()">🗑️ BORRAR</button>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="modal-detail" class="modal hidden">
-        <div class="modal-content detail-box">
-            <span class="close" onclick="closeModal('modal-detail')">×</span>
-            <div id="detail-body"></div>
-        </div>
+        <div class="modal-content detail-box"><span class="close" onclick="closeModal('modal-detail')">×</span><div id="detail-body"></div></div>
     </div>
 
     <div id="modal-cart" class="modal hidden">
         <div class="modal-content cart-tall">
-            <span class="close" onclick="closeModal('modal-cart')">×</span>
-            <h2>CARRITO DE COMPRAS</h2>
+            <span class="close" onclick="closeModal('modal-cart')">×</span><h2>CARRITO DE COMPRAS</h2>
             <div id="cart-list" class="cart-list-scroll"></div>
             <div class="total-box">TOTAL: <span id="cart-total">$0</span></div>
             <div style="display:flex; flex-direction:column; gap:10px;">
@@ -255,9 +266,7 @@
                 <button class="btn-nequi" onclick="processPayment()">GENERAR ORDEN SEGURA</button>
             </div>
             <div id="nequi-processing" class="hidden" style="text-align: center; padding: 20px 0;">
-                <div class="spinner"></div>
-                <h3 style="margin-top: 15px;">PROCESANDO...</h3>
-                <p style="font-size: 10px;">CREANDO TOKEN DE SEGURIDAD</p>
+                <div class="spinner"></div><h3 style="margin-top: 15px;">PROCESANDO...</h3>
             </div>
         </div>
     </div>
@@ -285,7 +294,6 @@
         <div class="modal-content narrow">
             <span class="close" onclick="closeModal('modal-security')">×</span>
             <h2>CAMBIAR CREDENCIALES</h2>
-            <p style="font-size: 10px; margin-bottom: 15px; color: gray;">Actualiza tu acceso de Súper Admin. No olvides estos datos.</p>
             <div class="admin-form">
                 <input type="email" id="sec-new-email" placeholder="NUEVO CORREO">
                 <input type="password" id="sec-new-pass" placeholder="NUEVA CONTRASEÑA">
@@ -294,9 +302,126 @@
         </div>
     </div>
 
+    <div id="modal-forum" class="modal hidden">
+        <div class="modal-content narrow">
+            <span class="close" onclick="closeModal('modal-forum')">×</span>
+            <h2>CREAR DEBATE O ANUNCIO</h2>
+            <div class="admin-form" style="margin-top: 15px;">
+                <input type="text" id="f-title" placeholder="TÍTULO DEL DEBATE">
+                <textarea id="f-content" placeholder="Escribe tu mensaje aquí..." style="height: 100px;"></textarea>
+                <p style="font-size: 10px; color: gray; margin: 10px 0 5px 0;">OPCIONAL: ADJUNTAR IMAGEN</p>
+                <div class="upload-zone" onclick="document.getElementById('f-file-input').click()" style="height: 100px;">
+                    <span id="f-upload-label">SUBIR IMAGEN 📸</span>
+                    <img id="f-preview" class="hidden" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <input type="file" id="f-file-input" accept="image/*" class="hidden" onchange="previewForumImage()">
+                <button class="btn-primary" style="margin-top: 15px;" onclick="saveForumPost()">PUBLICAR DEBATE</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
     <script src="script.js"></script>
+
+    <script>
+        let forumPosts = [];
+        let currentForumImg = "";
+
+        // Escucha en tiempo real para el Foro (Inicia cuando el HTML carga)
+        document.addEventListener('DOMContentLoaded', () => {
+            // db viene de script.js, nos aseguramos de que conecte a la colección 'foro'
+            setTimeout(() => {
+                db.collection("foro").orderBy("timestamp", "desc").onSnapshot(snap => {
+                    forumPosts = [];
+                    snap.forEach(doc => forumPosts.push({ id: doc.id, ...doc.data() }));
+                    renderForum();
+                });
+            }, 1000); // Pequeño retraso para asegurar que Firebase inicializó en script.js
+        });
+
+        function openForumModal() {
+            document.getElementById('f-title').value = "";
+            document.getElementById('f-content').value = "";
+            document.getElementById('f-preview').src = "";
+            document.getElementById('f-preview').classList.add('hidden');
+            document.getElementById('f-upload-label').classList.remove('hidden');
+            currentForumImg = "";
+            openModal('modal-forum');
+        }
+
+        function previewForumImage() {
+            const file = document.getElementById('f-file-input').files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    currentForumImg = reader.result;
+                    document.getElementById('f-preview').src = reader.result;
+                    document.getElementById('f-preview').classList.remove('hidden');
+                    document.getElementById('f-upload-label').classList.add('hidden');
+                }; 
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function saveForumPost() {
+            const title = document.getElementById('f-title').value.trim();
+            const content = document.getElementById('f-content').value.trim();
+            
+            if(!title || !content) return showToast("TÍTULO Y CONTENIDO SON OBLIGATORIOS");
+
+            // myUserId y currentUser.name vienen de script.js
+            const data = {
+                authorId: typeof myUserId !== 'undefined' ? myUserId : "Anon",
+                authorName: (typeof currentUser !== 'undefined' && currentUser?.name) ? currentUser.name : "Administrador",
+                title: title,
+                content: content,
+                img: currentForumImg,
+                timestamp: new Date().toISOString()
+            };
+
+            document.getElementById('modal-forum').classList.add('closing');
+            await db.collection("foro").add(data);
+            
+            closeModal('modal-forum');
+            showToast("¡DEBATE PUBLICADO!");
+        }
+
+        function renderForum() {
+            const feed = document.getElementById('forum-feed');
+            if(!feed) return;
+            
+            feed.innerHTML = forumPosts.map(post => {
+                const date = new Date(post.timestamp).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+                let imgHtml = post.img ? `<img src="${post.img}" style="width: 100%; margin-top: 10px; border: var(--border);">` : "";
+                
+                // Valida si eres admin usando la variable global de script.js
+                const isUserAdmin = typeof isAdmin !== 'undefined' ? isAdmin : false;
+
+                return `
+                <div class="forum-card">
+                    <div class="forum-card-header">
+                        <div>
+                            <h3 style="margin: 0; color: #da0081;">${post.title}</h3>
+                            <span style="font-size: 10px; color: gray;">Por ${post.authorName} (ID: #${post.authorId}) | ${date}</span>
+                        </div>
+                        ${isUserAdmin ? `<button onclick="deleteForumPost('${post.id}')" style="background: red; color: white; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer;">X</button>` : ''}
+                    </div>
+                    <p style="font-size: 14px; line-height: 1.5; text-transform: none;">${post.content}</p>
+                    ${imgHtml}
+                </div>
+                `;
+            }).join('');
+        }
+
+        async function deleteForumPost(id) {
+            if(confirm("¿Seguro que quieres borrar este mensaje del foro?")) {
+                await db.collection("foro").doc(id).delete();
+                showToast("DEBATE ELIMINADO");
+            }
+        }
+    </script>
 </body>
 </html>
