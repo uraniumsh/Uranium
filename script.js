@@ -60,7 +60,7 @@ let currentReceiptFile = null;
 let currentReceiptContext = {}; 
 
 // ==========================================
-// 3. INICIALIZACIÓN
+// 3. INICIALIZACIÓN Y PANTALLA DE BANEO
 // ==========================================
 async function initSession() {
     if (!myUserId) {
@@ -76,6 +76,7 @@ async function initSession() {
 
     const userRef = db.collection("usuarios").doc(myUserId);
     const userDoc = await userRef.get();
+    const rightNow = new Date().toISOString();
 
     if (!userDoc.exists) {
         const userData = {
@@ -84,12 +85,29 @@ async function initSession() {
             registered: false,
             username: '',
             name: '',
-            id: myUserId
+            id: myUserId,
+            banned: false,
+            lastActive: rightNow // Registra cuándo entró
         };
         await userRef.set(userData);
         currentUser = userData;
     } else {
         currentUser = userDoc.data();
+        
+        // PANTALLA NEGRA DE LA MUERTE SI ESTÁ BANEADO
+        if(currentUser.banned === true) {
+            document.body.innerHTML = `
+            <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding: 20px;">
+                <h1 style="font-size:80px; margin:0;">🚫</h1>
+                <h2>CUENTA SUSPENDIDA</h2>
+                <p>Tu acceso a URANIUM DIGITAL ha sido revocado.</p>
+                <p style="font-size:10px; color:gray; margin-top:20px;">ID: #${myUserId}</p>
+            </div>`;
+            return; // DETIENE TODO EL CÓDIGO. No puede hacer nada.
+        }
+        
+        // Si no está baneado, actualiza su última hora de conexión
+        await userRef.update({ lastActive: rightNow });
     }
 
     isAdmin = currentUser.role === 'superadmin' || currentUser.role === 'admin';
@@ -112,8 +130,6 @@ function escucharDatos() {
     db.collection("categorias").onSnapshot(snap => {
         categories = [];
         snap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
-        
-        // LAS 10 CATEGORÍAS POR DEFECTO
         if(categories.length === 0) {
             const defaultCats = ['NETFLIX', 'DISNEY+', 'MAX', 'PRIME VIDEO', 'STAR+', 'CRUNCHYROLL', 'SPOTIFY', 'YOUTUBE PREMIUM', 'PARAMOUNT+', 'IPTV'];
             defaultCats.forEach(c => db.collection("categorias").add({ name: c }));
@@ -126,6 +142,8 @@ function escucharDatos() {
         if (doc.exists) {
             currentUser = doc.data();
             updateProfileUI();
+            // Lo saca instantáneamente si lo banean mientras está adentro
+            if(currentUser.banned === true) location.reload(); 
         }
     });
 }
@@ -165,12 +183,11 @@ function showView(view) {
 window.onload = initSession;
 
 // ==========================================
-// 6. LOGIN Y ADMINISTRACIÓN
+// 6. LOGIN, ADMINISTRACIÓN Y COMANDOS DEL BOT
 // ==========================================
 async function handleLogin() {
     const em = document.getElementById('l-email').value.trim().toLowerCase();
     const pa = document.getElementById('l-pass').value.trim();
-    
     if(!em || !pa) return showToast("INGRESA DATOS");
 
     try {
@@ -178,7 +195,6 @@ async function handleLogin() {
         if(saDoc.exists && saDoc.data().adminEmail.toLowerCase() === em && saDoc.data().adminPass === pa) {
             myUserId = "170125"; localStorage.setItem('u_id', myUserId);
             currentUser = saDoc.data(); isAdmin = true; localStorage.setItem('u_admin', 'true');
-            
             activateAdminUI(); closeModal('modal-settings'); showToast("MODO SÚPER ADMIN ACTIVO"); 
             updateProfileUI(); escucharDatos(); return;
         }
@@ -188,17 +204,11 @@ async function handleLogin() {
             const adminData = adminsSnap.docs[0].data();
             myUserId = adminData.id; localStorage.setItem('u_id', myUserId);
             isAdmin = true; localStorage.setItem('u_admin', 'true');
-            
             await db.collection("usuarios").doc(myUserId).set({ role: 'admin' }, { merge: true });
-            
             activateAdminUI(); closeModal('modal-settings'); showToast("MODO ADMIN ACTIVO");
             escucharDatos();
-        } else {
-            showToast("CREDENCIALES INVÁLIDAS");
-        }
-    } catch (error) {
-        showToast("ERROR AL INICIAR SESIÓN"); console.error(error);
-    }
+        } else { showToast("CREDENCIALES INVÁLIDAS"); }
+    } catch (error) { showToast("ERROR AL INICIAR SESIÓN"); console.error(error); }
 }
 
 function activateAdminUI() {
@@ -217,12 +227,13 @@ function activateAdminUI() {
             document.getElementById('admin-list-container')?.classList.remove('hidden');
             cargarAdminsEnDashboard(); 
         }
+        cargarUsuariosEnDashboard(); // Carga la tabla de registro global
+        iniciarBotTelegram(); // ¡ENCIENDE EL MOTOR DEL BOT!
     }
 }
 
 async function handleLogout() {
     isAdmin = false; localStorage.setItem('u_admin', 'false');
-    
     document.getElementById('admin-bar')?.classList.add('hidden');
     document.getElementById('admin-sidebar')?.classList.add('hidden');
     document.getElementById('btn-login-header')?.classList.remove('hidden');
@@ -231,16 +242,96 @@ async function handleLogout() {
     document.getElementById('logout-box')?.classList.add('hidden');
     document.getElementById('btn-security')?.classList.add('hidden');
     document.getElementById('admin-list-container')?.classList.add('hidden');
-
     showView('products'); renderGrid(); showToast("SESIÓN CERRADA");
+    location.reload(); // Refresca para apagar el motor del bot
 }
 
+// === GESTIÓN DE USUARIOS Y BANEO EN PANTALLA ===
+function cargarUsuariosEnDashboard() {
+    const tbody = document.getElementById('users-table');
+    if(!tbody) return;
+    
+    // Trae a todos ordenados por el último que entró
+    db.collection("usuarios").orderBy("lastActive", "desc").onSnapshot(snap => {
+        tbody.innerHTML = '';
+        snap.forEach(doc => {
+            const u = doc.data();
+            if(u.id === "170125") return; // No te muestra a ti mismo para no auto-banearte
+            
+            const isBanned = u.banned === true;
+            const date = u.lastActive ? new Date(u.lastActive).toLocaleString('es-CO', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Nunca';
+            
+            tbody.innerHTML += `
+            <tr style="${isBanned ? 'opacity:0.5; background:#ff000020;' : ''}">
+                <td><strong>#${u.id}</strong><br>${u.name || 'Invitado'}<br><span style="font-size:9px;">Acceso: ${date}</span></td>
+                <td>$${(u.balance || 0).toLocaleString()}</td>
+                <td>
+                    ${isBanned 
+                    ? `<span style="color:red; font-weight:bold;">BANEADO</span><br><button onclick="toggleBan('${u.id}', false)" style="background:green; color:white; border:none; padding:5px; margin-top:5px; cursor:pointer; font-size:10px;">DESBANEAR</button>`
+                    : `<span style="color:green; font-weight:bold;">ACTIVO</span><br><button onclick="toggleBan('${u.id}', true)" style="background:red; color:white; border:none; padding:5px; margin-top:5px; cursor:pointer; font-size:10px;">BANEAR</button>`}
+                </td>
+            </tr>`;
+        });
+    });
+}
+
+async function toggleBan(id, status) {
+    if(confirm(`¿Seguro que quieres ${status ? 'BANEAR' : 'DESBANEAR'} al usuario #${id}?`)) {
+        await db.collection("usuarios").doc(id).update({ banned: status });
+        showToast(`USUARIO ${status ? 'BANEADO 🚫' : 'DESBANEADO ✅'}`);
+    }
+}
+
+// === MOTOR DEL BOT DE TELEGRAM (TRUCO HACKER) ===
+let telegramOffset = 0;
+function iniciarBotTelegram() {
+    console.log("Motor del Bot de Telegram ENCIENDIDO 🚀");
+    setInterval(async () => {
+        if(!isAdmin) return; // Si cierras sesión, el bot se apaga por seguridad
+        try {
+            const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${telegramOffset}`);
+            const data = await res.json();
+            if(data.ok && data.result.length > 0) {
+                for(let update of data.result) {
+                    telegramOffset = update.update_id + 1; // Para no procesar el mismo mensaje 2 veces
+                    
+                    if(update.message && update.message.text) {
+                        let text = update.message.text.trim();
+                        let chatId = update.message.chat.id.toString();
+                        
+                        if(chatId !== TELEGRAM_ADMIN_ID) continue; // SOLO TE OBEDECE A TI
+                        
+                        const args = text.split(" ");
+                        const comando = args[0].toLowerCase();
+                        const targetId = args[1];
+                        const monto = args[2] ? parseInt(args[2]) : 0;
+
+                        if(comando === "/recargar" && targetId && !isNaN(monto)) {
+                            await db.collection("usuarios").doc(targetId).update({ balance: firebase.firestore.FieldValue.increment(monto) });
+                            sendTelegramNotification(`✅ *$${monto.toLocaleString()}* recargados al usuario #${targetId} desde Telegram.`);
+                            showToast(`Recarga por Telegram a #${targetId} procesada`);
+                        }
+                        else if(comando === "/ban" && targetId) {
+                            await db.collection("usuarios").doc(targetId).update({ banned: true });
+                            sendTelegramNotification(`🚫 Usuario #${targetId} BANEADO de la página.`);
+                        }
+                        else if(comando === "/dban" && targetId) {
+                            await db.collection("usuarios").doc(targetId).update({ banned: false });
+                            sendTelegramNotification(`✅ Usuario #${targetId} DESBANEADO. Ya puede entrar.`);
+                        }
+                    }
+                }
+            }
+        } catch(e) { /* Se mantiene en silencio para no llenar la consola si hay lag de internet */ }
+    }, 3000); // Lee los mensajes de Telegram cada 3 segundos
+}
+
+// === FUNCIONES EXTRAS DEL ADMIN ===
 async function addSubAdmin() {
     if(currentUser?.role !== "superadmin") return showToast("ACCESO DENEGADO");
     const id = document.getElementById('new-admin-id').value.trim();
     const email = document.getElementById('new-admin-email').value.trim().toLowerCase();
     const pass = document.getElementById('new-admin-pass').value.trim();
-    
     if(!id || !email || !pass) return showToast("DATOS INCOMPLETOS");
     await db.collection("admins").doc(id).set({ id, email, pass });
     showToast("ADMIN AGREGADO CON ÉXITO"); closeModal('modal-manage-admins'); cargarAdminsEnDashboard();
@@ -291,6 +382,7 @@ async function inicializarSuperAdminSeguro() {
     }
 }
 inicializarSuperAdminSeguro();
+        
 
 // ==========================================
 // 7. PERFIL, RECARGA POR NEQUI Y COMPROBANTES
