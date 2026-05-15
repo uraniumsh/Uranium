@@ -230,8 +230,7 @@ function activateAdminUI() {
             document.getElementById('admin-list-container')?.classList.remove('hidden');
             cargarAdminsEnDashboard(); 
         }
-        cargarUsuariosEnDashboard(); 
-        iniciarBotTelegram(); 
+        cargarUsuariosEnDashboard();
     }
 }
 
@@ -292,52 +291,6 @@ async function toggleBan(id, status) {
 }
 
 // === MOTOR DEL BOT DE TELEGRAM ===
-function iniciarBotTelegram() {
-    console.log("Motor del Bot de Telegram ENCENDIDO 🚀");
-    
-    botInterval = setInterval(async () => {
-        if(!isAdmin) return; 
-        try {
-            const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${telegramOffset}`);
-            const data = await res.json();
-            if(data.ok && data.result.length > 0) {
-                for(let update of data.result) {
-                    telegramOffset = update.update_id + 1; 
-                    
-                    if(update.message && update.message.text) {
-                        let text = update.message.text.trim();
-                        let chatId = update.message.chat.id.toString();
-                        
-                        if(chatId !== TELEGRAM_ADMIN_ID) continue; 
-                        
-                        const args = text.split(" ");
-                        const comando = args[0].toLowerCase();
-                        const targetId = args[1];
-                        const monto = args[2] ? parseInt(args[2]) : 0;
-
-                        if(comando === "/recargar" && targetId && !isNaN(monto)) {
-                            await db.collection("usuarios").doc(targetId).update({ balance: firebase.firestore.FieldValue.increment(monto) });
-                            sendTelegramNotification(`✅ *$${monto.toLocaleString()}* recargados al usuario #${targetId} desde Telegram.`);
-                            showToast(`Recarga por Telegram a #${targetId} procesada`);
-                        }
-                        else if(comando === "/ban" && targetId) {
-                            if(targetId === "170125") {
-                                sendTelegramNotification("⚠️ ERROR: No tienes permiso para banear al Súper Admin de URANIUM.");
-                                continue; 
-                            }
-                            await db.collection("usuarios").doc(targetId).update({ banned: true });
-                            sendTelegramNotification(`🚫 Usuario #${targetId} BANEADO de la página.`);
-                        }
-                        else if(comando === "/dban" && targetId) {
-                            await db.collection("usuarios").doc(targetId).update({ banned: false });
-                            sendTelegramNotification(`✅ Usuario #${targetId} DESBANEADO. Ya puede entrar.`);
-                        }
-                    }
-                }
-            }
-        } catch(e) { }
-    }, 10000); // 10 segundos
-}
 
 // === FUNCIONES EXTRAS DEL ADMIN ===
 async function addSubAdmin() {
