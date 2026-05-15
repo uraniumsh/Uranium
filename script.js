@@ -1,4 +1,6 @@
-// CONFIG FIREBASE
+// ==========================================
+// 1. CONFIGURACIÓN E INICIALIZACIÓN
+// ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyB6Jj3SLC5I0seRbGvXXAHau0nWRnsj98U",
     authDomain: "uraniumsh.firebaseapp.com",
@@ -7,126 +9,256 @@ const firebaseConfig = {
     messagingSenderId: "401612582595",
     appId: "1:401612582595:web:fa9611083116e7038dfc76"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
-const NEQUI_NUM = "3137074357";
-const WA_NUM = "573043344577";
-const TG_BOT = "8776046886:AAERDniNNcDSNEJonVc32JJBawFuWSyiMTQ";
-const TG_CHAT = "7056557759";
+const TELEGRAM_BOT_TOKEN = "8776046886:AAERDniNNcDSNEJonVc32JJBawFuWSyiMTQ";
+const TELEGRAM_ADMIN_ID = "7056557759";
 
-let cart = [];
-let myID = localStorage.getItem('uranium_uid') || 'ID-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-localStorage.setItem('uranium_uid', myID);
-document.getElementById('device-tag').innerText = `ID: ${myID}`;
+// Variables de Estado
+let products = [];
+let categories = [];
+let cart = {};
+let currentUser = null;
+let isAdmin = false;
+let myUserId = localStorage.getItem('u_id');
+let currentImg = "";
+let editingId = null;
 
-// SISTEMA DE ADMIN POR DISPOSITIVO (Los 2 primeros)
-function checkAdmin() {
-    const adminRef = db.collection("config").doc("admins");
-    adminRef.get().then(doc => {
-        let admins = doc.exists ? doc.data().list : [];
-        if (admins.length < 2 && !admins.includes(myID)) {
-            admins.push(myID);
-            adminRef.set({ list: admins });
+// ==========================================
+// 2. SISTEMA DE IDENTIDAD Y ADMIN (170125)
+// ==========================================
+
+async function initSession() {
+    // Si no tiene ID, lo generamos. Si es el primero de la historia, es 170125
+    if (!myUserId) {
+        const usersSnap = await db.collection("usuarios").limit(1).get();
+        if (usersSnap.empty) {
+            myUserId = "170125";
+        } else {
+            myUserId = Math.floor(10000 + Math.random() * 90000).toString();
         }
-        if (admins.includes(myID)) {
-            document.getElementById('admin-sidebar').style.display = 'block';
-        }
-    });
-}
-checkAdmin();
-
-// CARGA PÚBLICA DE PRODUCTOS
-function render(cat = 'all') {
-    db.collection("productos").onSnapshot(snap => {
-        const grid = document.getElementById('products-grid');
-        grid.innerHTML = "";
-        snap.forEach(doc => {
-            const p = doc.data();
-            if (cat === 'all' || p.categoria === cat) {
-                grid.innerHTML += `
-                <div class="card" onclick="showDetail('${doc.id}')">
-                    <div class="card-img-box"><img src="${p.img}"></div>
-                    <h4>${p.nombre}</h4>
-                    <p>$${Number(p.precio).toLocaleString()}</p>
-                </div>`;
-            }
-        });
-    });
-}
-
-// MOSTRAR DETALLE
-window.showDetail = (id) => {
-    db.collection("productos").doc(id).get().then(doc => {
-        const p = doc.data();
-        document.getElementById('detail-content').innerHTML = `
-            <img src="${p.img}">
-            <h2>${p.nombre}</h2>
-            <p style="margin: 15px 0; color: #666;">${p.desc || 'Sin descripción'}</p>
-            <h3 style="color: #000;">$${Number(p.precio).toLocaleString()}</h3>
-        `;
-        document.getElementById('add-to-cart-btn').onclick = () => addToCart(p.nombre, p.precio);
-        document.getElementById('modal-detail').style.display = 'flex';
-    });
-};
-
-// CARRITO
-function addToCart(name, price) {
-    cart.push({ name, price });
-    document.getElementById('cart-qty').innerText = cart.length;
-    closeModals();
-}
-
-window.openCart = () => {
-    const list = document.getElementById('cart-items-list');
-    let total = 0; list.innerHTML = "";
-    cart.forEach(i => {
-        list.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:0.8rem;">
-            <span>${i.name}</span><span>$${i.price.toLocaleString()}</span>
-        </div>`;
-        total += i.price;
-    });
-    document.getElementById('total-val').innerText = total.toLocaleString();
-    document.getElementById('modal-cart').style.display = 'flex';
-};
-
-// PAGOS Y NOTIFICACIONES
-window.payNequi = () => {
-    const name = document.getElementById('client-name').value;
-    if (!name) return alert("Ingresa tu nombre para el reporte.");
-
-    let items = cart.map(i => i.name).join(", ");
-    let total = document.getElementById('total-val').innerText;
-
-    const msg = `💰 PAGO NEQUI\n👤 Cliente: ${name}\n🆔 ID: ${myID}\n🛒 Pedido: ${items}\n💵 Total: $${total}`;
-
-    // Notificar Telegram
-    fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage?chat_id=${TG_CHAT}&text=${encodeURIComponent(msg)}`)
-    .then(() => {
-        alert(`Transfiere $${total} a Nequi: ${NEQUI_NUM}. Se abrirá WhatsApp para entrega.`);
-        window.open(`https://wa.me/${WA_NUM}?text=Hola Uranium, soy ${name} (ID: ${myID}). Acabo de pagar Nequi por: ${items}`);
-        cart = []; document.getElementById('cart-qty').innerText = 0;
-        closeModals();
-    });
-};
-
-// SUBIR PRODUCTO (ADMIN)
-window.uploadProduct = () => {
-    const nombre = document.getElementById('p-name').value;
-    const precio = document.getElementById('p-price').value;
-    const img = document.getElementById('p-img').value;
-    const desc = document.getElementById('p-desc').value;
-    const categoria = document.getElementById('p-cat').value;
-
-    if (nombre && precio) {
-        db.collection("productos").add({ nombre, precio, img, desc, categoria })
-        .then(() => {
-            alert("Subido!");
-            document.querySelectorAll('.admin-form input').forEach(i => i.value = "");
-        });
+        localStorage.setItem('u_id', myUserId);
     }
-};
 
-window.closeModals = () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-window.onload = () => render();
-            
+    // Sincronizar con Firestore
+    const userRef = db.collection("usuarios").doc(myUserId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+        const userData = {
+            role: myUserId === "170125" ? 'superadmin' : 'user',
+            balance: 0,
+            registered: false,
+            username: '',
+            name: '',
+            id: myUserId
+        };
+        await userRef.set(userData);
+        currentUser = userData;
+    } else {
+        currentUser = userDoc.data();
+    }
+
+    // Verificar si es Admin o Sub-Admin (Rol guardado en Firestore)
+    isAdmin = currentUser.role === 'superadmin' || currentUser.role === 'admin';
+    if (isAdmin) activateAdminUI();
+
+    updateProfileUI();
+    escucharDatos();
+}
+
+// ==========================================
+// 3. ESCUCHADORES EN TIEMPO REAL (Firestore)
+// ==========================================
+
+function escucharDatos() {
+    // Escuchar Productos
+    db.collection("productos").onSnapshot(snap => {
+        products = [];
+        snap.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
+        renderGrid();
+    });
+
+    // Escuchar Categorías
+    db.collection("categorias").onSnapshot(snap => {
+        categories = [];
+        snap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
+        renderAll();
+    });
+
+    // Escuchar mi propio usuario (Para saldo en vivo)
+    db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
+        if (doc.exists) {
+            currentUser = doc.data();
+            updateProfileUI();
+        }
+    });
+}
+
+// ==========================================
+// 4. FUNCIONES DE PRODUCTOS (u_db)
+// ==========================================
+
+async function handleSaveProduct() {
+    const name = document.getElementById('p-name').value;
+    const price = document.getElementById('p-price').value;
+
+    if (!currentImg || !name || !price) return showToast("FOTO, NOMBRE Y PRECIO OBLIGATORIOS");
+
+    const data = {
+        name,
+        price: parseFloat(price),
+        short: document.getElementById('p-short').value,
+        desc: document.getElementById('p-desc').value,
+        contact: document.getElementById('p-contact').value || "3137074357",
+        wa: document.getElementById('p-wa').value || `Hola URANIUM, me interesa ${name}`,
+        nequiDest: document.getElementById('p-nequi-dest').value || "3137074357",
+        catId: document.getElementById('p-cat-select').value,
+        pinned: document.getElementById('p-pinned').checked,
+        img: currentImg,
+        reactions: {},
+        comments: []
+    };
+
+    if (editingId) {
+        await db.collection("productos").doc(editingId.toString()).update(data);
+    } else {
+        await db.collection("productos").add(data);
+    }
+
+    closeModal('modal-publish');
+    showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO");
+}
+
+// Reacciones y Comentarios
+async function handleReaction(id, type) {
+    const ref = db.collection("productos").doc(id.toString());
+    const doc = await ref.get();
+    let reactions = doc.data().reactions || {};
+
+    if (reactions[myUserId] === type) delete reactions[myUserId];
+    else reactions[myUserId] = type;
+
+    await ref.update({ reactions });
+    openDetail(id); 
+}
+
+async function addComment(id) {
+    const input = document.getElementById(`com-text-${id}`);
+    if (!input.value) return showToast("ESCRIBE ALGO");
+
+    await db.collection("productos").doc(id.toString()).update({
+        comments: firebase.firestore.FieldValue.arrayUnion({
+            userId: myUserId,
+            text: input.value,
+            timestamp: new Date().toISOString()
+        })
+    });
+    input.value = "";
+    openDetail(id);
+}
+
+// ==========================================
+// 5. BILLETERA Y ADMIN
+// ==========================================
+
+async function registerUser() {
+    const user = document.getElementById('reg-username').value.trim();
+    const name = document.getElementById('reg-name').value.trim();
+
+    if (!user || !name) return showToast("LLENA TODOS LOS DATOS");
+
+    const userRef = db.collection("usuarios").doc(myUserId);
+    await userRef.update({
+        username: user,
+        name: name,
+        registered: true,
+        balance: firebase.firestore.FieldValue.increment(5000)
+    });
+
+    showToast("¡REGISTRO EXITOSO! +$5000");
+}
+
+async function addBalanceToUser() {
+    if (!isAdmin) return;
+    const id = document.getElementById('bal-user-id').value;
+    const amt = parseInt(document.getElementById('bal-amount').value);
+
+    await db.collection("usuarios").doc(id).update({
+        balance: firebase.firestore.FieldValue.increment(amt)
+    });
+
+    showToast(`$${amt} RECARGADOS AL ID #${id}`);
+    closeModal('modal-add-balance');
+}
+
+// ==========================================
+// 6. UI Y RENDERIZADO (Tus funciones originales)
+// ==========================================
+
+function renderGrid(catId = 'all') {
+    const grid = document.getElementById('product-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    let filtered = products.filter(p => catId === 'all' || p.catId === catId);
+    filtered.sort((a, b) => (b.pinned === true) - (a.pinned === true));
+
+    filtered.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.onclick = () => openDetail(p.id);
+        card.innerHTML = `
+            ${p.pinned ? `<div class="pin-badge">⭐ FIJADO</div>` : ''}
+            <div class="card-img"><img src="${p.img}"></div>
+            <div class="card-info">
+                <h4>${p.name}</h4>
+                ${isAdmin ? `<button class="btn-edit-card" onclick="event.stopPropagation(); openPublishModal('${p.id}')">EDITAR</button>` : ''}
+                <p>$${parseFloat(p.price).toLocaleString()}</p>
+                <div class="slogan-box">${p.short || ''}</div>
+                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart('${p.id}')">AÑADIR AL CARRITO 🛒</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function updateProfileUI() {
+    const pId = document.getElementById('profile-id');
+    const pName = document.getElementById('profile-name-display');
+    const wBal = document.getElementById('wallet-balance');
+    const rSec = document.getElementById('register-section');
+
+    if (pId) pId.innerText = myUserId;
+    if (pName) pName.innerText = currentUser.registered ? currentUser.name : "INVITADO";
+    if (wBal) wBal.innerText = `$${currentUser.balance.toLocaleString()}`;
+    if (currentUser.registered && rSec) rSec.classList.add('hidden');
+}
+
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Helpers de Modales
+function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('closing');
+    setTimeout(() => { el.classList.remove('closing'); el.classList.add('hidden'); }, 200);
+}
+
+// Inicialización final
+window.onload = initSession;
+        
