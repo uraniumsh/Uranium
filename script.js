@@ -26,8 +26,24 @@ function sendTelegramNotification(message) {
     }).catch(err => console.error("Error Telegram:", err));
 }
 
+// NUEVO: Enviar foto a Telegram
+async function sendTelegramPhoto(file, caption) {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+    const formData = new FormData();
+    formData.append("chat_id", TELEGRAM_ADMIN_ID);
+    formData.append("photo", file);
+    formData.append("caption", caption);
+    formData.append("parse_mode", "Markdown");
+
+    try {
+        await fetch(url, { method: "POST", body: formData });
+    } catch (e) {
+        console.error("Error sending photo", e);
+    }
+}
+
 // ==========================================
-// 2. VARIABLES DE ESTADO GLOBALES
+// 2. VARIABLES GLOBALES
 // ==========================================
 let products = [];
 let categories = [];
@@ -38,18 +54,19 @@ let isAdmin = false;
 let myUserId = localStorage.getItem('u_id');
 let currentImg = "";
 let editingId = null;
-let currentNequiDest = "3137074357";
-let subAdmins = JSON.parse(localStorage.getItem('u_subadmins')) || [];
+
+// Variables para el comprobante
+let currentReceiptFile = null;
+let currentReceiptContext = {}; 
 
 // ==========================================
-// 3. INICIALIZACIÓN DE SESIÓN (ID 170125)
+// 3. INICIALIZACIÓN
 // ==========================================
 async function initSession() {
-    // Si no hay ID local, generamos uno o asignamos el 170125 si es el primer usuario
     if (!myUserId) {
         const usersSnap = await db.collection("usuarios").limit(1).get();
         if (usersSnap.empty) {
-            myUserId = "170125"; // El Dios de la página
+            myUserId = "170125"; 
             localStorage.setItem('u_admin', 'true');
         } else {
             myUserId = Math.floor(10000 + Math.random() * 90000).toString();
@@ -79,35 +96,32 @@ async function initSession() {
     if (isAdmin) activateAdminUI();
 
     updateProfileUI();
-    escucharDatos(); // Inicia la conexión en tiempo real
+    escucharDatos(); 
 }
 
 // ==========================================
-// 4. ESCUCHADORES EN TIEMPO REAL (FIREBASE)
+// 4. ESCUCHADORES EN TIEMPO REAL
 // ==========================================
 function escucharDatos() {
-    // Escuchar Productos
     db.collection("productos").onSnapshot(snap => {
         products = [];
         snap.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
         renderGrid();
     });
 
-    // Escuchar Categorías
     db.collection("categorias").onSnapshot(snap => {
         categories = [];
         snap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
         
-        // Si no hay categorías, inyectamos unas por defecto a Firebase
+        // LAS 10 CATEGORÍAS POR DEFECTO
         if(categories.length === 0) {
-            const defaultCats = ['NETFLIX', 'DISNEY+', 'HBO MAX', 'PRIME VIDEO', 'IPTV'];
+            const defaultCats = ['NETFLIX', 'DISNEY+', 'MAX', 'PRIME VIDEO', 'STAR+', 'CRUNCHYROLL', 'SPOTIFY', 'YOUTUBE PREMIUM', 'PARAMOUNT+', 'IPTV'];
             defaultCats.forEach(c => db.collection("categorias").add({ name: c }));
         } else {
             renderAll();
         }
     });
 
-    // Escuchar cambios en mi propio perfil (Ej: si te recargan saldo por Firebase)
     db.collection("usuarios").doc(myUserId).onSnapshot(doc => {
         if (doc.exists) {
             currentUser = doc.data();
@@ -117,7 +131,7 @@ function escucharDatos() {
 }
 
 // ==========================================
-// 5. UTILIDADES UI (MODALES, TOASTS, THEME)
+// 5. UTILIDADES UI
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -148,58 +162,42 @@ function showView(view) {
     if(v) v.classList.remove('hidden');
 }
 
-// Iniciar aplicación al cargar
 window.onload = initSession;
 
 // ==========================================
-// 6. LOGIN, SEGURIDAD Y ADMINISTRACIÓN FIREBASE
+// 6. LOGIN Y ADMINISTRACIÓN
 // ==========================================
 async function handleLogin() {
-    // .trim() quita espacios fantasma y .toLowerCase() fuerza minúsculas
     const em = document.getElementById('l-email').value.trim().toLowerCase();
     const pa = document.getElementById('l-pass').value.trim();
     
     if(!em || !pa) return showToast("INGRESA DATOS");
 
     try {
-        // 1. Verificar si es el Súper Admin en Firestore
         const saDoc = await db.collection("usuarios").doc("170125").get();
         if(saDoc.exists && saDoc.data().adminEmail.toLowerCase() === em && saDoc.data().adminPass === pa) {
-            myUserId = "170125";
-            localStorage.setItem('u_id', myUserId);
-            currentUser = saDoc.data();
-            isAdmin = true; 
-            localStorage.setItem('u_admin', 'true');
+            myUserId = "170125"; localStorage.setItem('u_id', myUserId);
+            currentUser = saDoc.data(); isAdmin = true; localStorage.setItem('u_admin', 'true');
             
-            activateAdminUI(); 
-            closeModal('modal-settings'); 
-            showToast("MODO SÚPER ADMIN ACTIVO"); 
-            updateProfileUI(); 
-            escucharDatos(); 
-            return;
+            activateAdminUI(); closeModal('modal-settings'); showToast("MODO SÚPER ADMIN ACTIVO"); 
+            updateProfileUI(); escucharDatos(); return;
         }
 
-        // 2. Verificar si es un Sub-Admin en Firebase
         const adminsSnap = await db.collection("admins").where("email", "==", em).where("pass", "==", pa).get();
         if(!adminsSnap.empty) {
             const adminData = adminsSnap.docs[0].data();
-            myUserId = adminData.id; 
-            localStorage.setItem('u_id', myUserId);
-            isAdmin = true; 
-            localStorage.setItem('u_admin', 'true');
+            myUserId = adminData.id; localStorage.setItem('u_id', myUserId);
+            isAdmin = true; localStorage.setItem('u_admin', 'true');
             
             await db.collection("usuarios").doc(myUserId).set({ role: 'admin' }, { merge: true });
             
-            activateAdminUI(); 
-            closeModal('modal-settings'); 
-            showToast("MODO ADMIN ACTIVO");
+            activateAdminUI(); closeModal('modal-settings'); showToast("MODO ADMIN ACTIVO");
             escucharDatos();
         } else {
             showToast("CREDENCIALES INVÁLIDAS");
         }
     } catch (error) {
-        showToast("ERROR AL INICIAR SESIÓN");
-        console.error(error);
+        showToast("ERROR AL INICIAR SESIÓN"); console.error(error);
     }
 }
 
@@ -214,7 +212,6 @@ function activateAdminUI() {
     if(currentUser) {
         const badge = document.getElementById('admin-role-badge');
         if(badge) badge.innerText = currentUser.role === 'superadmin' ? "SÚPER ADMIN" : "ADMINISTRADOR";
-        
         if(currentUser.role === 'superadmin') {
             document.getElementById('btn-security')?.classList.remove('hidden');
             document.getElementById('admin-list-container')?.classList.remove('hidden');
@@ -224,8 +221,7 @@ function activateAdminUI() {
 }
 
 async function handleLogout() {
-    isAdmin = false; 
-    localStorage.setItem('u_admin', 'false');
+    isAdmin = false; localStorage.setItem('u_admin', 'false');
     
     document.getElementById('admin-bar')?.classList.add('hidden');
     document.getElementById('admin-sidebar')?.classList.add('hidden');
@@ -246,24 +242,16 @@ async function addSubAdmin() {
     const pass = document.getElementById('new-admin-pass').value.trim();
     
     if(!id || !email || !pass) return showToast("DATOS INCOMPLETOS");
-    
     await db.collection("admins").doc(id).set({ id, email, pass });
-    
-    showToast("ADMIN AGREGADO CON ÉXITO"); 
-    closeModal('modal-manage-admins');
-    cargarAdminsEnDashboard();
+    showToast("ADMIN AGREGADO CON ÉXITO"); closeModal('modal-manage-admins'); cargarAdminsEnDashboard();
 }
 
 async function cargarAdminsEnDashboard() {
     const area = document.getElementById('admins-render-area');
     if(!area) return;
-    
     db.collection("admins").onSnapshot(snap => {
         area.innerHTML = '';
-        if(snap.empty) {
-            area.innerHTML = '<p>No hay sub-administradores activos.</p>';
-            return;
-        }
+        if(snap.empty) { area.innerHTML = '<p>No hay sub-administradores activos.</p>'; return; }
         snap.forEach(doc => {
             const data = doc.data();
             area.innerHTML += `
@@ -285,42 +273,27 @@ async function deleteAdmin(docId) {
 
 async function updateSuperAdminCreds() {
     if(currentUser?.role !== "superadmin") return showToast("SOLO SÚPER ADMIN");
-    
     const newEmail = document.getElementById('sec-new-email').value.trim().toLowerCase();
     const newPass = document.getElementById('sec-new-pass').value.trim();
-    
     if(!newEmail || !newPass) return showToast("INGRESA AMBOS DATOS");
-
-    await db.collection("usuarios").doc("170125").update({
-        adminEmail: newEmail,
-        adminPass: newPass
-    });
-
-    closeModal('modal-security');
-    showToast("¡CREDENCIALES ACTUALIZADAS CON ÉXITO!");
-    document.getElementById('sec-new-email').value = '';
-    document.getElementById('sec-new-pass').value = '';
+    await db.collection("usuarios").doc("170125").update({ adminEmail: newEmail, adminPass: newPass });
+    closeModal('modal-security'); showToast("¡CREDENCIALES ACTUALIZADAS CON ÉXITO!");
+    document.getElementById('sec-new-email').value = ''; document.getElementById('sec-new-pass').value = '';
 }
 
 async function inicializarSuperAdminSeguro() {
     const saDoc = await db.collection("usuarios").doc("170125").get();
     if (!saDoc.exists || !saDoc.data().adminEmail) {
         await db.collection("usuarios").doc("170125").set({
-            role: 'superadmin',
-            balance: 0,
-            registered: true,
-            username: 'admin',
-            name: 'SÚPER ADMIN',
-            id: "170125",
-            adminEmail: 'admin@uranium.co', 
-            adminPass: '1234'               
+            role: 'superadmin', balance: 0, registered: true, username: 'admin', name: 'SÚPER ADMIN',
+            id: "170125", adminEmail: 'admin@uranium.co', adminPass: '1234'               
         }, { merge: true });
     }
 }
 inicializarSuperAdminSeguro();
 
 // ==========================================
-// 7. PERFIL Y BILLETERA (FIREBASE)
+// 7. PERFIL, RECARGA POR NEQUI Y COMPROBANTES
 // ==========================================
 function updateProfileUI() {
     const pId = document.getElementById('profile-id');
@@ -339,15 +312,11 @@ async function registerUser() {
     const name = document.getElementById('reg-name').value.trim();
     if(!user || !name) return showToast("LLENA TODOS LOS DATOS");
     
-    const usersRef = db.collection("usuarios");
-    const snapshot = await usersRef.where("username", "==", user).get();
+    const snapshot = await db.collection("usuarios").where("username", "==", user).get();
     if (!snapshot.empty) return showToast("EL USUARIO YA EXISTE");
 
-    await usersRef.doc(myUserId).update({
-        username: user,
-        name: name,
-        registered: true,
-        balance: firebase.firestore.FieldValue.increment(5000)
+    await db.collection("usuarios").doc(myUserId).update({
+        username: user, name: name, registered: true, balance: firebase.firestore.FieldValue.increment(5000)
     });
     showToast("¡REGISTRO EXITOSO! +$5000 AÑADIDOS A LA BILLETERA");
 }
@@ -356,16 +325,93 @@ async function addBalanceToUser() {
     if(!isAdmin) return;
     const id = document.getElementById('bal-user-id').value.trim();
     const amt = parseInt(document.getElementById('bal-amount').value);
-    
     if(!id || isNaN(amt)) return showToast("DATOS INVÁLIDOS");
-
-    const userRef = db.collection("usuarios").doc(id);
-    const doc = await userRef.get();
+    const doc = await db.collection("usuarios").doc(id).get();
     if(!doc.exists) return showToast("USUARIO NO ENCONTRADO EN LA BD");
+    await db.collection("usuarios").doc(id).update({ balance: firebase.firestore.FieldValue.increment(amt) });
+    showToast(`$${amt} RECARGADOS AL ID #${id}`); closeModal('modal-add-balance');
+}
 
-    await userRef.update({ balance: firebase.firestore.FieldValue.increment(amt) });
-    showToast(`$${amt} RECARGADOS AL ID #${id}`); 
-    closeModal('modal-add-balance');
+// NUEVA LÓGICA: Recarga de Saldo por Usuario
+function openUserRecharge() {
+    closeModal('modal-profile');
+    document.getElementById('r-name').value = currentUser?.name || "";
+    document.getElementById('r-amount').value = "";
+    document.getElementById('recharge-form').classList.remove('hidden');
+    document.getElementById('recharge-processing').classList.add('hidden');
+    openModal('modal-user-recharge');
+}
+
+function processRecharge() {
+    const name = document.getElementById('r-name').value.trim();
+    const amount = document.getElementById('r-amount').value;
+    if(!name || !amount) return showToast("LLENA TODOS LOS DATOS");
+
+    document.getElementById('recharge-form').classList.add('hidden');
+    document.getElementById('recharge-processing').classList.remove('hidden');
+
+    currentReceiptContext = {
+        type: 'recharge',
+        name: name,
+        amount: amount,
+        token: "REC-" + Math.random().toString(36).substr(2,5).toUpperCase()
+    };
+
+    setTimeout(() => {
+        closeModal('modal-user-recharge');
+        showReceiptModal(`Envía $${parseInt(amount).toLocaleString()} al NEQUI 3137084357 para recargar tu saldo.`);
+    }, 2000);
+}
+
+// NUEVA LÓGICA: Subir Comprobante (Universal)
+function showReceiptModal(instructionText) {
+    document.getElementById('receipt-instructions').innerText = instructionText + "\nAdjunta el comprobante aquí debajo.";
+    document.getElementById('receipt-file-input').value = "";
+    document.getElementById('receipt-preview').src = "";
+    document.getElementById('receipt-preview').classList.add('hidden');
+    document.getElementById('receipt-upload-label').classList.remove('hidden');
+    currentReceiptFile = null;
+    
+    document.getElementById('receipt-form').classList.remove('hidden');
+    document.getElementById('receipt-processing').classList.add('hidden');
+
+    openModal('modal-receipt');
+}
+
+function previewReceipt() {
+    const file = document.getElementById('receipt-file-input').files[0];
+    if(file) {
+        currentReceiptFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('receipt-preview').src = e.target.result;
+            document.getElementById('receipt-preview').classList.remove('hidden');
+            document.getElementById('receipt-upload-label').classList.add('hidden');
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+async function submitReceipt() {
+    if(!currentReceiptFile) return showToast("DEBES ADJUNTAR EL COMPROBANTE");
+
+    document.getElementById('receipt-form').classList.add('hidden');
+    document.getElementById('receipt-processing').classList.remove('hidden');
+
+    let caption = "";
+    if(currentReceiptContext.type === 'recharge') {
+        caption = `💰 *SOLICITUD DE RECARGA*\n\n*Token:* ${currentReceiptContext.token}\n*Usuario:* ${currentReceiptContext.name}\n*ID:* #${myUserId}\n*Monto a recargar:* $${currentReceiptContext.amount}\n\n_Revisa el comprobante adjunto y recarga la billetera manualmente._`;
+        addLog(`TOKEN: ${currentReceiptContext.token}`, `RECARGA PENDIENTE | $${currentReceiptContext.amount}`);
+    } else {
+        caption = `🛒 *NUEVA ORDEN (COMPROBANTE ADJUNTO)*\n\n*Token:* ${currentReceiptContext.token}\n*Cliente:* ${currentReceiptContext.name} (${currentReceiptContext.phone})\n*ID:* #${myUserId}\n*Servicios:* ${currentReceiptContext.details}\n*Total Pagado:* $${currentReceiptContext.amount}`;
+        addLog(`TOKEN: ${currentReceiptContext.token}`, `NEQUI PENDIENTE | Total: $${currentReceiptContext.amount}`);
+        cart = {}; updateCartUI(); // Vaciar carrito
+    }
+
+    await sendTelegramPhoto(currentReceiptFile, caption);
+
+    closeModal('modal-receipt');
+    showToast("¡COMPROBANTE ENVIADO CON ÉXITO! REVISAREMOS TU PAGO PRONTO.");
 }
 
 // ==========================================
@@ -380,19 +426,26 @@ async function saveNewCategory() {
     }
 }
 
+function openDeleteCatModal() {
+    const sel = document.getElementById('d-cat-select');
+    sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    openModal('modal-delete-cat');
+}
+
+async function deleteCategory() {
+    const id = document.getElementById('d-cat-select').value;
+    if(!id) return showToast("SELECCIONA UNA CATEGORÍA");
+    if(confirm("¿Seguro que quieres eliminar esta plataforma de raíz?")) {
+        await db.collection("categorias").doc(id).delete();
+        closeModal('modal-delete-cat');
+        showToast("CATEGORÍA ELIMINADA");
+    }
+}
+
 function openPublishModal(id = null) {
     editingId = id;
-    const btnDelete = document.getElementById('btn-delete-product');
-
     if(id) {
         document.getElementById('pub-title').innerText = "EDITAR PRODUCTO";
-        
-        // Muestra el botón borrar si estás editando
-        if(btnDelete) {
-            btnDelete.classList.remove('hidden');
-            btnDelete.style.display = 'block';
-        }
-        
         const p = products.find(prod => prod.id.toString() === id.toString());
         if(!p) return;
         
@@ -403,7 +456,6 @@ function openPublishModal(id = null) {
         document.getElementById('p-desc').value = p.desc || "";
         document.getElementById('p-contact').value = p.contact || "";
         document.getElementById('p-wa').value = p.wa || "";
-        document.getElementById('p-nequi-dest').value = p.nequiDest || ""; 
         document.getElementById('p-pinned').checked = p.pinned || false;
         
         currentImg = p.img || "";
@@ -414,22 +466,14 @@ function openPublishModal(id = null) {
         }
     } else {
         document.getElementById('pub-title').innerText = "NUEVA PUBLICACIÓN";
-        
-        // Oculta el botón borrar si es un producto nuevo
-        if(btnDelete) {
-            btnDelete.classList.add('hidden');
-            btnDelete.style.display = 'none';
-        }
         resetForm();
     }
     openModal('modal-publish');
 }
 
-async function deleteProduct() {
-    if(!editingId) return;
+async function deleteProduct(id) {
     if(confirm("¿Seguro que quieres eliminar este producto de la tienda para siempre?")) {
-        await db.collection("productos").doc(editingId.toString()).delete();
-        closeModal('modal-publish');
+        await db.collection("productos").doc(id.toString()).delete();
         showToast("PRODUCTO ELIMINADO 🗑️");
     }
 }
@@ -443,20 +487,16 @@ function previewImage() {
             document.getElementById('file-preview').src = reader.result;
             document.getElementById('file-preview').classList.remove('hidden');
             document.getElementById('upload-label').classList.add('hidden');
-        }; 
-        reader.readAsDataURL(file);
+        }; reader.readAsDataURL(file);
     }
 }
 
 async function handleSaveProduct() {
     const name = document.getElementById('p-name').value.trim();
     const price = document.getElementById('p-price').value;
-    const nequiInput = document.getElementById('p-nequi-dest').value.trim();
     
     if(!currentImg || !name || !price) return showToast("FOTO, NOMBRE Y PRECIO OBLIGATORIOS");
 
-    const existingP = editingId ? products.find(p => p.id.toString() === editingId.toString()) : {};
-    
     const data = {
         name, 
         price: parseFloat(price),
@@ -464,22 +504,20 @@ async function handleSaveProduct() {
         desc: document.getElementById('p-desc').value.trim(),
         contact: document.getElementById('p-contact').value.trim() || "3128194596",
         wa: document.getElementById('p-wa').value.trim() || `Hola URANIUM, me interesa ${name}`,
-        nequiDest: nequiInput || "3128194596", 
         catId: document.getElementById('p-cat-select').value,
         pinned: document.getElementById('p-pinned').checked, 
         img: currentImg,
-        reactions: existingP.reactions || {}, 
-        comments: existingP.comments || []
     };
 
     if(editingId) {
         await db.collection("productos").doc(editingId.toString()).update(data);
     } else {
+        data.reactions = {};
+        data.comments = [];
         await db.collection("productos").add(data);
     }
 
-    closeModal('modal-publish'); 
-    showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO"); 
+    closeModal('modal-publish'); showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO"); 
 }
 
 function resetForm() {
@@ -507,11 +545,16 @@ function renderGrid(catId = 'all') {
         card.onclick = () => openDetail(p.id);
         
         card.innerHTML = `
+            ${isAdmin ? `
+            <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; z-index: 10;">
+                <button class="btn-edit-card" style="position: static;" onclick="event.stopPropagation(); openPublishModal('${p.id}')">✏️ EDITAR</button>
+                <button class="btn-edit-card" style="position: static; background: red; padding: 5px 8px;" onclick="event.stopPropagation(); deleteProduct('${p.id}')">🗑️</button>
+            </div>
+            ` : ''}
             ${p.pinned ? `<div class="pin-badge">⭐ FIJADO</div>` : ''}
             <div class="card-img"><img src="${p.img}"></div>
             <div class="card-info">
                 <h4>${p.name}</h4>
-                ${isAdmin ? `<button class="btn-edit-card" onclick="event.stopPropagation(); openPublishModal('${p.id}')">EDITAR</button>` : ''}
                 <p>$${parseFloat(p.price).toLocaleString()}</p>
                 <div class="slogan-box">${p.short || ''}</div>
                 <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart('${p.id}')">AÑADIR AL CARRITO 🛒</button>
@@ -525,165 +568,25 @@ function renderAll() {
     const navPC = document.getElementById('nav-cats');
     const navMob = document.getElementById('mobile-nav-cats');
     const sel = document.getElementById('p-cat-select');
+    const selDel = document.getElementById('d-cat-select');
     
-    if(navPC) {
-        navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + 
-                          categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
-    }
-    
-    if(navMob) {
-        navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + 
-                           categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
-    }
-    
-    if(sel) {
-        sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    }
-    
-    renderGrid();
-        }
-        
+    let htmlCats = categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
+    let htmlMob = categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
+    let htmlOptions = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
-// ==========================================
-// 10. PUBLICACIÓN Y EDICIÓN DE PRODUCTOS
-// ==========================================
-function openPublishModal(id = null) {
-    editingId = id;
-    if(id) {
-        document.getElementById('pub-title').innerText = "EDITAR PRODUCTO";
-        const p = products.find(prod => prod.id === id);
-        if(!p) return;
-        
-        document.getElementById('p-name').value = p.name || "";
-        document.getElementById('p-short').value = p.short || "";
-        document.getElementById('p-price').value = p.price || "";
-        document.getElementById('p-cat-select').value = p.catId || "";
-        document.getElementById('p-desc').value = p.desc || "";
-        document.getElementById('p-contact').value = p.contact || "";
-        document.getElementById('p-wa').value = p.wa || "";
-        document.getElementById('p-nequi-dest').value = p.nequiDest || "";
-        document.getElementById('p-pinned').checked = p.pinned || false;
-        
-        currentImg = p.img || "";
-        if(currentImg) {
-            document.getElementById('file-preview').src = currentImg;
-            document.getElementById('file-preview').classList.remove('hidden');
-            document.getElementById('upload-label').classList.add('hidden');
-        }
-    } else {
-        document.getElementById('pub-title').innerText = "NUEVA PUBLICACIÓN";
-        resetForm();
-    }
-    openModal('modal-publish');
-}
-
-function previewImage() {
-    const file = document.getElementById('file-input').files[0];
-    if(file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            currentImg = reader.result;
-            document.getElementById('file-preview').src = reader.result;
-            document.getElementById('file-preview').classList.remove('hidden');
-            document.getElementById('upload-label').classList.add('hidden');
-        }; 
-        reader.readAsDataURL(file);
-    }
-}
-
-async function handleSaveProduct() {
-    const name = document.getElementById('p-name').value;
-    const price = document.getElementById('p-price').value;
-    
-    if(!currentImg || !name || !price) return showToast("FOTO, NOMBRE Y PRECIO OBLIGATORIOS");
-
-    const existingP = editingId ? products.find(p => p.id === editingId) : {};
-    
-    const data = {
-        name, 
-        price: parseFloat(price),
-        short: document.getElementById('p-short').value,
-        desc: document.getElementById('p-desc').value,
-        contact: document.getElementById('p-contact').value || "3137074357",
-        wa: document.getElementById('p-wa').value || `Hola URANIUM, me interesa ${name}`,
-        nequiDest: document.getElementById('p-nequi-dest').value || "3137074357",
-        catId: document.getElementById('p-cat-select').value,
-        pinned: document.getElementById('p-pinned').checked, 
-        img: currentImg,
-        reactions: existingP.reactions || {}, 
-        comments: existingP.comments || []
-    };
-
-    if(editingId) {
-        const i = products.findIndex(p => p.id === editingId);
-        if(i > -1) products[i] = data;
-        await db.collection("productos").doc(editingId.toString()).update(data);
-    } else {
-        await db.collection("productos").add(data);
-    }
-
-    closeModal('modal-publish'); 
-    showToast(editingId ? "PRODUCTO ACTUALIZADO" : "PRODUCTO PUBLICADO"); 
-}
-
-// ==========================================
-// 11. RENDERIZADO DE LA INTERFAZ
-// ==========================================
-function renderGrid(catId = 'all') {
-    const grid = document.getElementById('product-grid');
-    if(!grid) return;
-    grid.innerHTML = '';
-    
-    let filtered = products.filter(p => catId === 'all' || p.catId === catId);
-    filtered.sort((a, b) => (b.pinned === true) - (a.pinned === true));
-
-    filtered.forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.onclick = () => openDetail(p.id);
-        
-        card.innerHTML = `
-            ${p.pinned ? `<div class="pin-badge">⭐ FIJADO</div>` : ''}
-            <div class="card-img"><img src="${p.img}"></div>
-            <div class="card-info">
-                <h4>${p.name}</h4>
-                ${isAdmin ? `<button class="btn-edit-card" onclick="event.stopPropagation(); openPublishModal('${p.id}')">EDITAR</button>` : ''}
-                <p>$${parseFloat(p.price).toLocaleString()}</p>
-                <div class="slogan-box">${p.short || ''}</div>
-                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart('${p.id}')">AÑADIR AL CARRITO 🛒</button>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-}
-
-function renderAll() {
-    const navPC = document.getElementById('nav-cats');
-    const navMob = document.getElementById('mobile-nav-cats');
-    const sel = document.getElementById('p-cat-select');
-    
-    if(navPC) {
-        navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + 
-                          categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
-    }
-    
-    if(navMob) {
-        navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + 
-                           categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
-    }
-    
-    if(sel) {
-        sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    }
+    if(navPC) navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + htmlCats;
+    if(navMob) navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + htmlMob;
+    if(sel) sel.innerHTML = htmlOptions;
+    if(selDel) selDel.innerHTML = htmlOptions;
     
     renderGrid();
 }
 
 // ==========================================
-// 12. DETALLE DE PRODUCTO Y SISTEMA SOCIAL
+// 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL
 // ==========================================
 function openDetail(id) {
-    const p = products.find(prod => prod.id === id);
+    const p = products.find(prod => prod.id.toString() === id.toString());
     if(!p) return;
     const body = document.getElementById('detail-body');
     
@@ -708,17 +611,13 @@ function openDetail(id) {
                 <h3>PRECIO: $${parseFloat(p.price).toLocaleString()}</h3>
                 
                 <div class="social-bar">
-                    <button onclick="handleReaction('${p.id}', 'like')" style="color: ${myReaction==='like' ? 'var(--border-color)' : 'inherit'}">
-                        👍 <span>${likes}</span>
-                    </button>
-                    <button onclick="handleReaction('${p.id}', 'dislike')" style="color: ${myReaction==='dislike' ? 'var(--border-color)' : 'inherit'}">
-                        👎 <span>${dislikes}</span>
-                    </button>
+                    <button onclick="handleReaction('${p.id}', 'like')" style="color: ${myReaction==='like' ? 'var(--border-color)' : 'inherit'}">👍 <span>${likes}</span></button>
+                    <button onclick="handleReaction('${p.id}', 'dislike')" style="color: ${myReaction==='dislike' ? 'var(--border-color)' : 'inherit'}">👎 <span>${dislikes}</span></button>
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <button class="btn-primary" onclick="addToCart('${p.id}'); closeModal('modal-detail')">AÑADIR AL CARRITO 🛒</button>
-                    <button class="btn-wa" onclick="window.open('https://wa.me/57${p.contact || '3137074357'}?text=${encodeURIComponent(p.wa || 'Hola')}')">COMPRA YA EN WHATSAPP</button>
+                    <button class="btn-wa" onclick="window.open('https://wa.me/57${p.contact || '3128194596'}?text=${encodeURIComponent(p.wa || 'Hola')}')">COMPRA YA EN WHATSAPP</button>
                     <button class="btn-nequi" onclick="buyDirectNequi('${p.id}')">PAGA CON NEQUI</button>
                 </div>
 
@@ -740,181 +639,114 @@ async function handleReaction(id, type) {
     const ref = db.collection("productos").doc(id.toString());
     const doc = await ref.get();
     let reactions = doc.data().reactions || {};
-
-    // Toggle para quitar la reacción
-    if(reactions[myUserId] === type) {
-        delete reactions[myUserId];
-    } else {
-        reactions[myUserId] = type;
-    }
-
+    if(reactions[myUserId] === type) delete reactions[myUserId]; else reactions[myUserId] = type;
     await ref.update({ reactions });
-    // openDetail(id) se llamará automáticamente gracias a escucharDatos() (onSnapshot)
 }
 
 async function addComment(id) {
     const input = document.getElementById(`com-text-${id}`);
     if(!input.value) return showToast("ESCRIBE ALGO");
-    
     await db.collection("productos").doc(id.toString()).update({
-        comments: firebase.firestore.FieldValue.arrayUnion({
-            userId: myUserId,
-            text: input.value,
-            timestamp: new Date().toISOString()
-        })
+        comments: firebase.firestore.FieldValue.arrayUnion({ userId: myUserId, text: input.value, timestamp: new Date().toISOString() })
     });
-    
-    input.value = "";
-    showToast("COMENTARIO ENVIADO");
+    input.value = ""; showToast("COMENTARIO ENVIADO");
 }
 
 // ==========================================
-// 13. LÓGICA DEL CARRITO (Cooldown y Borrado)
+// 11. GESTIÓN DEL CARRITO
 // ==========================================
 function addToCart(id) {
-    if(cartCooldowns[id] && (Date.now() - cartCooldowns[id] < 1000)) {
-        return showToast("ESPERA 1 SEGUNDO...");
-    }
+    if(cartCooldowns[id] && (Date.now() - cartCooldowns[id] < 1000)) return showToast("ESPERA 1 SEGUNDO...");
     cartCooldowns[id] = Date.now();
     
-    if(cart[id]) {
-        cart[id].qty++;
-    } else {
-        cart[id] = {...products.find(p => p.id === id), qty: 1};
-    }
-    
-    updateCartUI(); 
-    showToast("AÑADIDO AL CARRITO 🛒");
+    const productData = products.find(p => p.id.toString() === id.toString());
+    if(!productData) return showToast("ERROR: PRODUCTO NO ENCONTRADO");
+
+    if(cart[id]) cart[id].qty++; else cart[id] = {...productData, qty: 1};
+    updateCartUI(); showToast("AÑADIDO AL CARRITO 🛒");
 }
 
-function removeFromCart(id) { 
-    delete cart[id]; 
-    updateCartUI(); 
-}
+function removeFromCart(id) { delete cart[id]; updateCartUI(); }
 
 function updateCartUI() {
-    const list = document.getElementById('cart-list'); 
-    let total = 0, count = 0;
-    
+    const list = document.getElementById('cart-list'); let total = 0, count = 0;
     list.innerHTML = Object.values(cart).map(p => {
-        total += (p.price * p.qty); 
-        count += p.qty;
+        total += (p.price * p.qty); count += p.qty;
         return `
         <div style="border:2px solid var(--border-color); padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
             <div><strong>${p.name} (x${p.qty})</strong><br>$${(p.price * p.qty).toLocaleString()}</div>
             <button onclick="removeFromCart('${p.id}')" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer; font-weight:bold;">X</button>
         </div>`;
     }).join('');
-    
     document.getElementById('cart-count').innerText = count; 
     document.getElementById('cart-total').innerText = `$${total.toLocaleString()}`; 
     document.getElementById('pay-val').innerText = `$${total.toLocaleString()}`;
 }
-
 // ==========================================
-// 14. SISTEMA DE PAGOS, TELEGRAM Y ÓRDENES
+// 12. PAGO CON NEQUI Y COMPROBANTE AL CHECKOUT
 // ==========================================
 async function payWithWallet() {
     const total = Object.values(cart).reduce((sum, p) => sum + (p.price * p.qty), 0);
     if(total === 0) return showToast("CARRITO VACÍO");
     
     if(currentUser.balance >= total) {
-        // Descuento directo en Firebase
-        await db.collection("usuarios").doc(myUserId).update({
-            balance: firebase.firestore.FieldValue.increment(-total)
-        });
-        
+        await db.collection("usuarios").doc(myUserId).update({ balance: firebase.firestore.FieldValue.increment(-total) });
         const token = "ORD-" + Math.random().toString(36).substr(2,5).toUpperCase();
         let details = Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', ');
-        
         addLog(`TOKEN: ${token}`, `WALLET: ${details} | Total: $${total}`);
         
-        let tgMsg = `🟢 *COMPRA FINALIZADA (BILLETERA)* 🟢\n\n`;
-        tgMsg += `*Token:* ${token}\n`;
-        tgMsg += `*ID Usuario:* #${myUserId}\n`;
-        tgMsg += `*Servicios:* ${details}\n`;
-        tgMsg += `*Total Pagado:* $${total}`;
+        let tgMsg = `🟢 *COMPRA FINALIZADA (BILLETERA)* 🟢\n\n*Token:* ${token}\n*ID Usuario:* #${myUserId}\n*Servicios:* ${details}\n*Total Pagado:* $${total}`;
         sendTelegramNotification(tgMsg);
 
-        cart = {}; 
-        updateCartUI(); 
-        closeModal('modal-cart'); 
-        showToast("¡COMPRA EXITOSA CON SALDO!");
-    } else {
-        showToast("SALDO INSUFICIENTE");
-    }
+        cart = {}; updateCartUI(); closeModal('modal-cart'); showToast("¡COMPRA EXITOSA CON SALDO!");
+    } else { showToast("SALDO INSUFICIENTE"); }
 }
 
 function goToPayment() {
     if(Object.keys(cart).length === 0) return showToast("CARRITO VACÍO");
-    currentNequiDest = "3137074357"; 
-    closeModal('modal-cart'); 
-    openModal('modal-nequi');
+    closeModal('modal-cart'); openModal('modal-nequi');
 }
 
 function buyDirectNequi(id) {
-    const p = products.find(prod => prod.id === id); 
+    const p = products.find(prod => prod.id.toString() === id.toString()); 
     if(!p) return;
-    
-    cart = {}; 
-    addToCart(id); 
-    currentNequiDest = p.nequiDest || "3137074357"; 
-    
-    closeModal('modal-detail'); 
-    openModal('modal-nequi');
+    cart = {}; addToCart(id); 
+    closeModal('modal-detail'); openModal('modal-nequi');
 }
 
+// NUEVA LÓGICA: Pasarela hacia Comprobante en vez de abrir WhatsApp directo
 function processPayment() {
-    const name = document.getElementById('pay-name').value;
-    const phone = document.getElementById('pay-phone').value;
-    
+    const name = document.getElementById('pay-name').value.trim();
+    const phone = document.getElementById('pay-phone').value.trim();
     if(!name || phone.length < 10) return showToast("INGRESA UN NOMBRE Y NÚMERO VÁLIDOS");
 
-    const token = "ORD-" + Math.random().toString(36).substr(2,5).toUpperCase();
-    let details = Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', ');
-    let totalStr = document.getElementById('cart-total').innerText;
-
-    addLog(`TOKEN: ${token}`, `NEQUI PENDIENTE: ${details} | Total: ${totalStr}`);
-
-    let tgMsg = `🚨 *NUEVA ORDEN GENERADA (NEQUI)* 🚨\n\n`;
-    tgMsg += `*Token:* ${token}\n`;
-    tgMsg += `*ID Usuario:* #${myUserId}\n`;
-    tgMsg += `*Cliente:* ${name} (${phone})\n`;
-    tgMsg += `*Servicios:* ${details}\n`;
-    tgMsg += `*Valor a Cobrar:* ${totalStr}`;
-    sendTelegramNotification(tgMsg);
+    let total = Object.values(cart).reduce((sum, p) => sum + (p.price * p.qty), 0);
 
     document.getElementById('nequi-form').classList.add('hidden');
     document.getElementById('nequi-processing').classList.remove('hidden');
 
+    currentReceiptContext = {
+        type: 'checkout',
+        name: name,
+        phone: phone,
+        amount: total,
+        details: Object.values(cart).map(p => `${p.qty}x ${p.name}`).join(', '),
+        token: "ORD-" + Math.random().toString(36).substr(2,5).toUpperCase()
+    };
+
     setTimeout(() => {
-        let waMsg = `Hola URANIUM, mi orden generada es el token de seguridad: *${token}*`;
-        showToast(`TOKEN DE SEGURIDAD CREADO: ${token}`);
-        window.open(`https://wa.me/57${currentNequiDest}?text=${waMsg}`, '_blank');
-        
-        cart = {}; 
-        updateCartUI(); 
         closeModal('modal-nequi');
+        showReceiptModal(`Envía $${total.toLocaleString()} al NEQUI 3137084357 para completar tu orden.`);
         
+        // Reseteamos el modal para el futuro
         document.getElementById('nequi-form').classList.remove('hidden');
         document.getElementById('nequi-processing').classList.add('hidden');
     }, 2500); 
 }
 
-// ==========================================
-// 15. UTILIDADES Y RESET
-// ==========================================
+// LOGS
 function addLog(action, item) {
     const log = document.getElementById('log-table');
-    if(log) {
-        log.innerHTML = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${action}</td><td>${item}</td></tr>` + log.innerHTML;
-    }
-}
+    if(log) log.innerHTML = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${action}</td><td>${item}</td></tr>` + log.innerHTML;
+            }
 
-function resetForm() {
-    document.querySelectorAll('#modal-publish input[type="text"], #modal-publish input[type="number"], #modal-publish textarea').forEach(i => i.value = "");
-    const cb = document.getElementById('p-pinned'); if(cb) cb.checked = false;
-    const fp = document.getElementById('file-preview'); if(fp) fp.classList.add('hidden');
-    const ul = document.getElementById('upload-label'); if(ul) ul.classList.remove('hidden');
-    currentImg = "";
-}
