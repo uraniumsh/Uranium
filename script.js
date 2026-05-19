@@ -124,20 +124,32 @@ async function initSession() {
     updateProfileUI();
 }
 
-
 // ==========================================
-// 4. ESCUCHADORES EN TIEMPO REAL
+// 4. ESCUCHADORES EN TIEMPO REAL (CON PRE-CARGA CACHÉ)
 // ==========================================
 function escucharDatos() {
+    // --- 1. PRECARGA INMEDIATA DESDE EL CELULAR ---
+    const cachedProducts = localStorage.getItem('u_prod_cache');
+    const cachedCats = localStorage.getItem('u_cat_cache');
+    
+    if(cachedCats) { categories = JSON.parse(cachedCats); }
+    if(cachedProducts) { 
+        products = JSON.parse(cachedProducts); 
+        if(categories.length > 0) renderAll(); else renderGrid();
+    }
+
+    // --- 2. ACTUALIZACIÓN SILENCIOSA DESDE FIREBASE ---
     db.collection("productos").onSnapshot(snap => {
         products = [];
         snap.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
+        localStorage.setItem('u_prod_cache', JSON.stringify(products)); // Guardar nuevo caché
         renderGrid();
     });
 
     db.collection("categorias").onSnapshot(snap => {
         categories = [];
         snap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
+        localStorage.setItem('u_cat_cache', JSON.stringify(categories)); // Guardar nuevo caché
         
         if(categories.length === 0) {
             const defaultCats = ['NETFLIX', 'DISNEY+', 'MAX', 'PRIME VIDEO', 'STAR+', 'CRUNCHYROLL', 'SPOTIFY', 'YOUTUBE PREMIUM', 'PARAMOUNT+', 'IPTV'];
@@ -151,11 +163,11 @@ function escucharDatos() {
         if (doc.exists) {
             currentUser = doc.data();
             updateProfileUI();
-            // LA INMUNIDAD: No te saca de la página si te intentan banear en vivo
             if(currentUser.banned === true && myUserId !== "170125") location.reload(); 
         }
     });
 }
+
 
 // ==========================================
 // 5. UTILIDADES UI
@@ -614,7 +626,7 @@ function renderGrid(catId = 'all') {
         
         card.innerHTML = `
             ${isAdmin ? `
-            <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; z-index: 10;">
+            <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; z-index: 20;">
                 <button class="btn-edit-card" style="position: static;" onclick="event.stopPropagation(); openPublishModal('${p.id}')">✏️ EDITAR</button>
                 <button class="btn-edit-card" style="position: static; background: red; padding: 5px 8px;" onclick="event.stopPropagation(); deleteProduct('${p.id}')">🗑️</button>
             </div>
@@ -623,9 +635,7 @@ function renderGrid(catId = 'all') {
             
             <div class="card-img">
                 <div class="product-name-overlay">$${parseFloat(p.price).toLocaleString()}</div>
-                
                 <img src="${p.img}">
-                
                 ${p.short ? `
                 <div class="slogan-marquee-container">
                     <span class="slogan-marquee-text">${p.short}</span>
