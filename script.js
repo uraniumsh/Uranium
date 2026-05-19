@@ -654,6 +654,25 @@ function renderGrid(catId = 'all') {
     });
 }
 
+function renderAll() {
+    const navPC = document.getElementById('nav-cats');
+    const navMob = document.getElementById('mobile-nav-cats');
+    const sel = document.getElementById('p-cat-select');
+    const selDel = document.getElementById('d-cat-select');
+    
+    let htmlCats = categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
+    let htmlMob = categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
+    let htmlOptions = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+    if(navPC) navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + htmlCats;
+    if(navMob) navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + htmlMob;
+    if(sel) sel.innerHTML = htmlOptions;
+    if(selDel) selDel.innerHTML = htmlOptions;
+    
+    renderGrid();
+}
+
+
 // ==========================================
 // 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL
 // ==========================================
