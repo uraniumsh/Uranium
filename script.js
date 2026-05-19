@@ -66,6 +66,9 @@ let botInterval;
 // 3. INICIALIZACIÓN Y PANTALLA DE BANEO
 // ==========================================
 async function initSession() {
+    // ¡DISPARO INMEDIATO! Carga los productos y categorías al instante sin esperar el login
+    escucharDatos(); 
+
     // 1. Buscamos la "Cédula" original del dispositivo
     let originalId = localStorage.getItem('original_uid');
     
@@ -119,7 +122,6 @@ async function initSession() {
     if (isAdmin) activateAdminUI();
 
     updateProfileUI();
-    escucharDatos(); 
 }
 
 // ==========================================
