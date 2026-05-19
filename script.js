@@ -66,28 +66,19 @@ let botInterval;
 // 3. INICIALIZACIÓN Y PANTALLA DE BANEO
 // ==========================================
 async function initSession() {
-    // ¡AQUÍ ESTÁ LA SOLUCIÓN AL LAG! Dispara la carga de productos INMEDIATAMENTE
-    escucharDatos(); 
-
-    // 1. Buscamos la "Cédula" original del dispositivo
+    // 1. Asegurar ID inmutable (El usuario mantiene su cédula para siempre)
     let originalId = localStorage.getItem('original_uid');
-    
     if (!originalId) {
-        // Si el celular es nuevo en la página, le creamos su cédula para siempre
-        const usersSnap = await db.collection("usuarios").limit(1).get();
-        if (usersSnap.empty) {
-            originalId = "170125"; 
-            localStorage.setItem('u_admin', 'true');
-        } else {
-            originalId = Math.floor(10000 + Math.random() * 90000).toString();
-        }
-        localStorage.setItem('original_uid', originalId); // La guardamos intocable
+        originalId = Math.floor(100000 + Math.random() * 900000).toString();
+        localStorage.setItem('original_uid', originalId);
     }
-
-    // 2. Definimos quién está usando la página ahora mismo
-    myUserId = localStorage.getItem('u_id') || originalId;
+    myUserId = originalId;
     localStorage.setItem('u_id', myUserId);
 
+    // 2. Disparo inmediato de carga de productos para velocidad máxima
+    escucharDatos(); 
+
+    // 3. Validar sesión sin bloquear la interfaz
     const userRef = db.collection("usuarios").doc(myUserId);
     const userDoc = await userRef.get();
     const rightNow = new Date().toISOString();
@@ -102,25 +93,16 @@ async function initSession() {
         currentUser = userData;
     } else {
         currentUser = userDoc.data();
-        
-        // LA INMUNIDAD
+        // Control de Baneo (Inmunidad para el Super Admin)
         if(currentUser.banned === true && myUserId !== "170125") {
-            document.body.innerHTML = `
-            <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding: 20px;">
-                <h1 style="font-size:80px; margin:0;">🚫</h1>
-                <h2>CUENTA SUSPENDIDA</h2>
-                <p>Tu acceso a URANIUM DIGITAL ha sido revocado.</p>
-                <p style="font-size:10px; color:gray; margin-top:20px;">ID: #${myUserId}</p>
-            </div>`;
+            document.body.innerHTML = `<div style="background:black; color:red; height:100vh; display:flex; align-items:center; justify-content:center; text-align:center;"><h1>🚫 CUENTA SUSPENDIDA</h1></div>`;
             return; 
         }
-        
         await userRef.update({ lastActive: rightNow });
     }
 
     isAdmin = currentUser.role === 'superadmin' || currentUser.role === 'admin';
     if (isAdmin) activateAdminUI();
-
     updateProfileUI();
 }
 
@@ -216,24 +198,28 @@ async function handleLogin() {
     if(!em || !pa) return showToast("INGRESA DATOS");
 
     try {
-        const saDoc = await db.collection("usuarios").doc("170125").get();
-        if(saDoc.exists && saDoc.data().adminEmail.toLowerCase() === em && saDoc.data().adminPass === pa) {
-            myUserId = "170125"; localStorage.setItem('u_id', myUserId);
-            currentUser = saDoc.data(); isAdmin = true; localStorage.setItem('u_admin', 'true');
-            activateAdminUI(); closeModal('modal-settings'); showToast("MODO SÚPER ADMIN ACTIVO"); 
-            updateProfileUI(); escucharDatos(); return;
-        }
+        const usersSnap = await db.collection("usuarios")
+            .where("adminEmail", "==", em)
+            .where("adminPass", "==", pa)
+            .get();
 
-        const adminsSnap = await db.collection("admins").where("email", "==", em).where("pass", "==", pa).get();
-        if(!adminsSnap.empty) {
-            const adminData = adminsSnap.docs[0].data();
-            myUserId = adminData.id; localStorage.setItem('u_id', myUserId);
-            isAdmin = true; localStorage.setItem('u_admin', 'true');
-            await db.collection("usuarios").doc(myUserId).set({ role: 'admin' }, { merge: true });
-            activateAdminUI(); closeModal('modal-settings'); showToast("MODO ADMIN ACTIVO");
-            escucharDatos();
-        } else { showToast("CREDENCIALES INVÁLIDAS"); }
-    } catch (error) { showToast("ERROR AL INICIAR SESIÓN"); console.error(error); }
+        if(!usersSnap.empty) {
+            const adminDoc = usersSnap.docs[0];
+            myUserId = adminDoc.id; 
+            localStorage.setItem('u_id', myUserId);
+            currentUser = adminDoc.data();
+            isAdmin = true;
+            
+            activateAdminUI(); 
+            closeModal('modal-settings'); 
+            showToast("SESIÓN DE ADMIN INICIADA");
+            location.reload(); 
+        } else {
+            showToast("CREDENCIALES INCORRECTAS");
+        }
+    } catch (error) {
+        showToast("ERROR DE ACCESO");
+    }
 }
 
 function activateAdminUI() {
@@ -257,80 +243,42 @@ function activateAdminUI() {
 }
 
 async function handleLogout() {
-    isAdmin = false; 
     localStorage.setItem('u_admin', 'false');
-    
-    // ¡LA MAGIA! Le quitamos la placa de admin y le devolvemos su cédula original
     let originalId = localStorage.getItem('original_uid');
     if (originalId) {
         myUserId = originalId;
         localStorage.setItem('u_id', originalId);
     }
-
-    document.getElementById('admin-bar')?.classList.add('hidden');
-    document.getElementById('admin-sidebar')?.classList.add('hidden');
-    document.getElementById('btn-login-header')?.classList.remove('hidden');
-    document.getElementById('btn-logout-header')?.classList.add('hidden');
-    document.getElementById('login-box')?.classList.remove('hidden');
-    document.getElementById('logout-box')?.classList.add('hidden');
-    document.getElementById('btn-security')?.classList.add('hidden');
-    document.getElementById('admin-list-container')?.classList.add('hidden');
-
-    showView('products'); 
-    renderGrid(); 
-    showToast("SESIÓN CERRADA");
-    
-    // Recargamos para que el sistema inicie limpio con su usuario original
-    setTimeout(() => location.reload(), 800);
+    location.reload(); 
 }
 
-
-// === GESTIÓN DE USUARIOS Y BANEO EN PANTALLA ===
 function cargarUsuariosEnDashboard() {
     const tbody = document.getElementById('users-table');
     if(!tbody) return;
-    
     db.collection("usuarios").orderBy("lastActive", "desc").onSnapshot(snap => {
         tbody.innerHTML = '';
         snap.forEach(doc => {
             const u = doc.data();
             if(u.id === "170125") return; 
-            
-            const isBanned = u.banned === true;
-            const date = u.lastActive ? new Date(u.lastActive).toLocaleString('es-CO', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Nunca';
-            
-            tbody.innerHTML += `
-            <tr style="${isBanned ? 'opacity:0.5; background:#ff000020;' : ''}">
-                <td><strong>#${u.id}</strong><br>${u.name || 'Invitado'}<br><span style="font-size:9px;">Acceso: ${date}</span></td>
-                <td>$${(u.balance || 0).toLocaleString()}</td>
-                <td>
-                    ${isBanned 
-                    ? `<span style="color:red; font-weight:bold;">BANEADO</span><br><button onclick="toggleBan('${u.id}', false)" style="background:green; color:white; border:none; padding:5px; margin-top:5px; cursor:pointer; font-size:10px;">DESBANEAR</button>`
-                    : `<span style="color:green; font-weight:bold;">ACTIVO</span><br><button onclick="toggleBan('${u.id}', true)" style="background:red; color:white; border:none; padding:5px; margin-top:5px; cursor:pointer; font-size:10px;">BANEAR</button>`}
-                </td>
-            </tr>`;
+            tbody.innerHTML += `<tr><td>#${u.id}</td><td>$${(u.balance || 0).toLocaleString()}</td><td>
+            <button onclick="toggleBan('${u.id}', ${!u.banned})" style="background:${u.banned?'green':'red'}; color:white; border:none; padding:5px; cursor:pointer;">${u.banned?'DESBANEAR':'BANEAR'}</button></td></tr>`;
         });
     });
 }
 
 async function toggleBan(id, status) {
-    if(confirm(`¿Seguro que quieres ${status ? 'BANEAR' : 'DESBANEAR'} al usuario #${id}?`)) {
-        await db.collection("usuarios").doc(id).update({ banned: status });
-        showToast(`USUARIO ${status ? 'BANEADO 🚫' : 'DESBANEADO ✅'}`);
-    }
+    await db.collection("usuarios").doc(id).update({ banned: status });
+    showToast(`USUARIO ${status ? 'BANEADO' : 'DESBANEADO'}`);
 }
 
-// === MOTOR DEL BOT DE TELEGRAM ===
-
-// === FUNCIONES EXTRAS DEL ADMIN ===
 async function addSubAdmin() {
     if(currentUser?.role !== "superadmin") return showToast("ACCESO DENEGADO");
     const id = document.getElementById('new-admin-id').value.trim();
     const email = document.getElementById('new-admin-email').value.trim().toLowerCase();
     const pass = document.getElementById('new-admin-pass').value.trim();
     if(!id || !email || !pass) return showToast("DATOS INCOMPLETOS");
-    await db.collection("admins").doc(id).set({ id, email, pass });
-    showToast("ADMIN AGREGADO CON ÉXITO"); closeModal('modal-manage-admins'); cargarAdminsEnDashboard();
+    await db.collection("usuarios").doc(id).update({ role: 'admin', adminEmail: email, adminPass: pass });
+    showToast("SUB-ADMIN CREADO"); closeModal('modal-manage-admins');
 }
 
 async function cargarAdminsEnDashboard() {
