@@ -621,22 +621,11 @@ function renderAll() {
 }
 
 
+
 // ==========================================
-// 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL (VERSION ACTUALIZADA)
+// 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL (VERSION FINAL)
 // ==========================================
 
-// A. Función de formateo de texto (La pones al final de tu archivo .js)
-function formatText(text) {
-    if (!text) return "";
-    return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/__(.*?)__/g, '<em>$1</em>')
-        .replace(/>(.*?)</g, '<mark>$1</mark>')
-        .replace(/=#([0-9A-Fa-f]{6})(.*?)(?=\s|$)/g, '<span style="color:#$1">$2</span>')
-        .replace(/\n/g, '<br>');
-}
-
-// B. Función openDetail actualizada para Tiempo Real y Formato
 function openDetail(id) {
     // Escucha el producto en tiempo real para que likes y comentarios se muevan solos
     db.collection("productos").doc(id.toString()).onSnapshot(doc => {
@@ -691,14 +680,36 @@ function openDetail(id) {
     openModal('modal-detail');
 }
 
-// C. Lógica del Editor Avanzado (Al final de tu archivo .js)
-function openBigEditor() {
-    document.getElementById('big-editor-area').value = document.getElementById('p-desc').value;
-    openModal('modal-big-editor');
+async function handleReaction(id, type) {
+    const ref = db.collection("productos").doc(id.toString());
+    const doc = await ref.get();
+    let data = doc.data();
+    let reactions = data.reactions || {};
+    
+    // Si ya reaccionó igual, borra la reacción, si no, la pone
+    if(reactions[myUserId] === type) {
+        delete reactions[myUserId];
+    } else {
+        reactions[myUserId] = type;
+    }
+    
+    await ref.update({ reactions });
 }
-function saveBigEditor() {
-    document.getElementById('p-desc').value = document.getElementById('big-editor-area').value;
-    closeModal('modal-big-editor');
+
+async function addComment(id) {
+    const input = document.getElementById(`com-text-${id}`);
+    if(!input || !input.value) return showToast("ESCRIBE ALGO");
+    
+    await db.collection("productos").doc(id.toString()).update({
+        comments: firebase.firestore.FieldValue.arrayUnion({ 
+            userId: myUserId, 
+            text: input.value, 
+            timestamp: new Date().toISOString() 
+        })
+    });
+    
+    input.value = ""; 
+    showToast("COMENTARIO ENVIADO");
 }
 
 // ==========================================
