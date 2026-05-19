@@ -66,7 +66,7 @@ let botInterval;
 // 3. INICIALIZACIÓN Y PANTALLA DE BANEO
 // ==========================================
 async function initSession() {
-    // ¡DISPARO INMEDIATO! Carga los productos y categorías al instante sin esperar el login
+    // ¡AQUÍ ESTÁ LA SOLUCIÓN AL LAG! Dispara la carga de productos INMEDIATAMENTE
     escucharDatos(); 
 
     // 1. Buscamos la "Cédula" original del dispositivo
@@ -123,6 +123,7 @@ async function initSession() {
 
     updateProfileUI();
 }
+
 
 // ==========================================
 // 4. ESCUCHADORES EN TIEMPO REAL
@@ -619,34 +620,24 @@ function renderGrid(catId = 'all') {
             </div>
             ` : ''}
             ${p.pinned ? `<div class="pin-badge">⭐ FIJADO</div>` : ''}
-            <div class="card-img"><img src="${p.img}"></div>
+            
+            <div class="card-img">
+                <div class="product-name-overlay">$${parseFloat(p.price).toLocaleString()}</div>
+                
+                <img src="${p.img}">
+                
+                ${p.short ? `
+                <div class="slogan-marquee-container">
+                    <span class="slogan-marquee-text">${p.short}</span>
+                </div>` : ''}
+            </div>
+            
             <div class="card-info">
-                <h4>${p.name}</h4>
-                <p>$${parseFloat(p.price).toLocaleString()}</p>
-                <div class="slogan-box">${p.short || ''}</div>
                 <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart('${p.id}')">AÑADIR AL CARRITO 🛒</button>
             </div>
         `;
         grid.appendChild(card);
     });
-}
-
-function renderAll() {
-    const navPC = document.getElementById('nav-cats');
-    const navMob = document.getElementById('mobile-nav-cats');
-    const sel = document.getElementById('p-cat-select');
-    const selDel = document.getElementById('d-cat-select');
-    
-    let htmlCats = categories.map(c => `<a href="#" onclick="renderGrid('${c.id}')">${c.name}</a>`).join('');
-    let htmlMob = categories.map(c => `<button onclick="renderGrid('${c.id}')">${c.name}</button>`).join('');
-    let htmlOptions = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-
-    if(navPC) navPC.innerHTML = `<a href="#" onclick="renderGrid('all')">VER TODAS</a>` + htmlCats;
-    if(navMob) navMob.innerHTML = `<button onclick="renderGrid('all')">TODAS</button>` + htmlMob;
-    if(sel) sel.innerHTML = htmlOptions;
-    if(selDel) selDel.innerHTML = htmlOptions;
-    
-    renderGrid();
 }
 
 // ==========================================
