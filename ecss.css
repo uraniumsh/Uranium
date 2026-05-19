@@ -632,3 +632,96 @@ input, select, textarea {
 }
 
 .hidden { display: none !important; }
+
+/* --- 1. ANIMACIÓN DE ENTRADA AL CAMBIAR SECCIÓN --- */
+@keyframes sectionEntrance { 
+    0% { opacity: 0; transform: translateY(20px); } 
+    100% { opacity: 1; transform: translateY(0); } 
+}
+.view-section:not(.hidden) {
+    animation: sectionEntrance 0.4s ease-out forwards;
+}
+
+/* --- 2. TARJETAS MÁS COMPACTAS --- */
+.product-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
+    gap: 15px; 
+}
+
+.card-img { 
+    aspect-ratio: 1 / 1; 
+    width: 100%; 
+    height: auto;
+    border-bottom: var(--border); 
+    overflow: hidden; 
+    background: var(--input-bg); 
+    position: relative; /* CRÍTICO PARA EL OVERLAY */
+}
+
+/* --- ETIQUETA BLANCA DEL NOMBRE --- */
+.product-name-overlay {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: #ffffff;
+    color: #000000;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-weight: 900;
+    border: 2px solid #000000;
+    z-index: 2;
+    max-width: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- ANIMACIÓN CARTEL HACIA LA DERECHA (SLOGAN) --- */
+.slogan-marquee-container {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #000000;
+    border: 2px solid var(--border-color);
+    padding: 3px;
+    overflow: hidden;
+    z-index: 2;
+    white-space: nowrap;
+}
+
+.slogan-marquee-text {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 900;
+    animation: marqueeRight 6s linear infinite; /* ANIMACIÓN */
+}
+
+@keyframes marqueeRight {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* --- AJUSTES DE LA INFO Y BOTÓN --- */
+.card-info { 
+    padding: 10px; 
+    display: flex; 
+    flex-direction: column; 
+    flex-grow: 1; 
+}
+.card-info h4, .slogan-box { 
+    display: none; /* Oculta los viejos textos que ocupaban espacio */
+}
+.btn-add-cart { 
+    background: var(--btn-bg); 
+    color: var(--btn-text); 
+    border: none; 
+    padding: 8px; /* Botón más delgado */
+    font-size: 11px; /* Letra más pequeña y derecha */
+    font-weight: 900; 
+    cursor: pointer; 
+    margin-top: auto; 
+    width: 100%; 
+}
