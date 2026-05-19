@@ -129,21 +129,26 @@ async function initSession() {
 // ==========================================
 function escucharDatos() {
     // --- 1. PRECARGA INMEDIATA DESDE EL CELULAR ---
-    const cachedProducts = localStorage.getItem('u_prod_cache');
-    const cachedCats = localStorage.getItem('u_cat_cache');
-    
-    if(cachedCats) { categories = JSON.parse(cachedCats); }
-    if(cachedProducts) { 
-        products = JSON.parse(cachedProducts); 
-        if(categories.length > 0) renderAll(); else renderGrid();
-    }
+    try {
+        const cachedProducts = localStorage.getItem('u_prod_cache');
+        const cachedCats = localStorage.getItem('u_cat_cache');
+        
+        if (cachedCats) categories = JSON.parse(cachedCats);
+        if (cachedProducts) products = JSON.parse(cachedProducts);
+        
+        // Intentar pintar todo lo que tengamos guardado al instante
+        if (categories.length > 0) renderAll(); 
+        else if (products.length > 0) renderGrid();
+    } catch(e) { console.error("Error cargando caché", e); }
 
     // --- 2. ACTUALIZACIÓN SILENCIOSA DESDE FIREBASE ---
     db.collection("productos").onSnapshot(snap => {
         products = [];
         snap.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
         localStorage.setItem('u_prod_cache', JSON.stringify(products)); // Guardar nuevo caché
-        renderGrid();
+        
+        // Renderizamos asegurando que las categorías no desaparezcan
+        if (categories.length > 0) renderAll(); else renderGrid();
     });
 
     db.collection("categorias").onSnapshot(snap => {
@@ -155,7 +160,7 @@ function escucharDatos() {
             const defaultCats = ['NETFLIX', 'DISNEY+', 'MAX', 'PRIME VIDEO', 'STAR+', 'CRUNCHYROLL', 'SPOTIFY', 'YOUTUBE PREMIUM', 'PARAMOUNT+', 'IPTV'];
             defaultCats.forEach(c => db.collection("categorias").add({ name: c }));
         } else {
-            renderAll();
+            renderAll(); // Esto es lo que pinta los botones
         }
     });
 
@@ -167,7 +172,6 @@ function escucharDatos() {
         }
     });
 }
-
 
 // ==========================================
 // 5. UTILIDADES UI
