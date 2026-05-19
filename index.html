@@ -181,7 +181,7 @@
     <div id="modal-receipt" class="modal hidden">
         <div class="modal-content narrow">
             <span class="close" onclick="closeModal('modal-receipt')">×</span>
-            <h2>ADJUNTAR COMPROBANTE</h2>
+            <h3>ADJUNTAR COMPROBANTE</h3>
             <p id="receipt-instructions" style="font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #da0081; line-height: 1.4;"></p>
             <div id="receipt-form" class="admin-form">
                 <div class="upload-zone" onclick="document.getElementById('receipt-file-input').click()" style="height: 200px; border-color: #da0081;">
@@ -253,6 +253,19 @@
                 <input type="number" id="p-price" placeholder="PRECIO ($)">
                 <select id="p-cat-select"></select>
                 <textarea id="p-desc" placeholder="DESCRIPCIÓN DETALLADA"></textarea>
+                <button type="button" class="btn-primary" style="background:#555; margin-top:-5px; margin-bottom:10px; font-size:10px;" 
+onclick="openBigEditor()">📝</button>
+
+<div id="modal-big-editor" class="modal hidden">
+    <div class="modal-content" style="width: 90%;">
+        <span class="close" onclick="closeBigEditor()">×</span>
+        <h2>EDITOR AVANZADO</h2>
+        <p style="font-size:10px; color:gray;">Usa **negrita**, __cursiva__, >resaltado o =#FF0000color</p>
+        <textarea id="big-editor-area" style="height: 300px;"></textarea>
+        <button class="btn-primary" onclick="saveBigEditor()">GUARDAR Y CERRAR</button>
+    </div>
+</div>
+
                 <input type="text" id="p-contact" placeholder="WHATSAPP DE CONTACTO">
                 <input type="text" id="p-wa" placeholder="MSJ PREDETERMINADO WHATSAPP">
                 
