@@ -674,73 +674,83 @@ function renderAll() {
 
 
 // ==========================================
-// 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL
+// 10. DETALLE DE PRODUCTO Y SISTEMA SOCIAL (VERSION ACTUALIZADA)
 // ==========================================
+
+// A. Función de formateo de texto (La pones al final de tu archivo .js)
+function formatText(text) {
+    if (!text) return "";
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.*?)__/g, '<em>$1</em>')
+        .replace(/>(.*?)</g, '<mark>$1</mark>')
+        .replace(/=#([0-9A-Fa-f]{6})(.*?)(?=\s|$)/g, '<span style="color:#$1">$2</span>')
+        .replace(/\n/g, '<br>');
+}
+
+// B. Función openDetail actualizada para Tiempo Real y Formato
 function openDetail(id) {
-    const p = products.find(prod => prod.id.toString() === id.toString());
-    if(!p) return;
-    const body = document.getElementById('detail-body');
-    
-    let likes = 0, dislikes = 0;
-    let myReaction = p.reactions ? p.reactions[myUserId] : null;
-    
-    if(p.reactions) {
-        for(let user in p.reactions) {
-            if(p.reactions[user] === 'like') likes++;
-            if(p.reactions[user] === 'dislike') dislikes++;
+    // Escucha el producto en tiempo real para que likes y comentarios se muevan solos
+    db.collection("productos").doc(id.toString()).onSnapshot(doc => {
+        if(!doc.exists) return;
+        const p = { id: doc.id, ...doc.data() };
+        const body = document.getElementById('detail-body');
+        
+        let likes = 0, dislikes = 0;
+        let myReaction = p.reactions ? p.reactions[myUserId] : null;
+        
+        if(p.reactions) {
+            for(let user in p.reactions) {
+                if(p.reactions[user] === 'like') likes++;
+                if(p.reactions[user] === 'dislike') dislikes++;
+            }
         }
-    }
 
-    let commentsHTML = (p.comments || []).map(c => `<div class="comment-item"><strong>#${c.userId}:</strong> ${c.text}</div>`).join('');
+        let commentsHTML = (p.comments || []).map(c => `<div class="comment-item"><strong>#${c.userId}:</strong> ${c.text}</div>`).join('');
 
-    body.innerHTML = `
-        <div class="detail-layout">
-            <div class="detail-img-container"><img src="${p.img}"></div>
-            <div class="detail-info">
-                <h2>${p.name}</h2>
-                <p style="margin:10px 0; font-size:12px; flex-grow:1; text-transform:none;">${p.desc || ''}</p>
-                <h3>PRECIO: $${parseFloat(p.price).toLocaleString()}</h3>
-                
-                <div class="social-bar">
-                    <button onclick="handleReaction('${p.id}', 'like')" style="color: ${myReaction==='like' ? 'var(--border-color)' : 'inherit'}">👍 <span>${likes}</span></button>
-                    <button onclick="handleReaction('${p.id}', 'dislike')" style="color: ${myReaction==='dislike' ? 'var(--border-color)' : 'inherit'}">👎 <span>${dislikes}</span></button>
-                </div>
-
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <button class="btn-primary" onclick="addToCart('${p.id}'); closeModal('modal-detail')">AÑADIR AL CARRITO 🛒</button>
-                    <button class="btn-wa" onclick="window.open('https://wa.me/57${p.contact || '3128194596'}?text=${encodeURIComponent(p.wa || 'Hola')}')">COMPRA YA EN WHATSAPP</button>
-                    <button class="btn-nequi" onclick="buyDirectNequi('${p.id}')">PAGA CON NEQUI</button>
-                </div>
-
-                <div class="comments-section">
-                    <h4 style="margin-bottom:5px;">COMENTARIOS</h4>
-                    <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="com-text-${p.id}" placeholder="Escribe un comentario..." style="margin:0; padding:8px; font-size:10px;">
-                        <button class="btn-primary" style="width:auto; padding:8px;" onclick="addComment('${p.id}')">ENVIAR</button>
+        body.innerHTML = `
+            <div class="detail-layout">
+                <div class="detail-img-container"><img src="${p.img}"></div>
+                <div class="detail-info">
+                    <h2>${p.name}</h2>
+                    <p style="margin:10px 0; font-size:12px; flex-grow:1; text-transform:none;">${formatText(p.desc || '')}</p>
+                    <h3>PRECIO: $${parseFloat(p.price).toLocaleString()}</h3>
+                    
+                    <div class="social-bar">
+                        <button onclick="handleReaction('${p.id}', 'like')" style="color: ${myReaction==='like' ? 'var(--border-color)' : 'inherit'}">👍 <span>${likes}</span></button>
+                        <button onclick="handleReaction('${p.id}', 'dislike')" style="color: ${myReaction==='dislike' ? 'var(--border-color)' : 'inherit'}">👎 <span>${dislikes}</span></button>
                     </div>
-                    <div style="max-height:120px; overflow-y:auto;">${commentsHTML}</div>
+
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn-primary" onclick="addToCart('${p.id}'); closeModal('modal-detail')">AÑADIR AL CARRITO 🛒</button>
+                        <button class="btn-wa" onclick="window.open('https://wa.me/57${p.contact || '3128194596'}?text=${encodeURIComponent(p.wa || 'Hola')}')">COMPRA YA EN WHATSAPP</button>
+                        <button class="btn-nequi" onclick="buyDirectNequi('${p.id}')">PAGA CON NEQUI</button>
+                    </div>
+
+                    <div class="comments-section">
+                        <h4 style="margin-bottom:5px;">COMENTARIOS</h4>
+                        <div style="display:flex; gap:5px; margin-bottom:10px;">
+                            <input type="text" id="com-text-${p.id}" placeholder="Escribe un comentario..." style="margin:0; padding:15px; font-size:14px;">
+                            <button class="btn-primary" style="width:auto; padding:8px;" onclick="addComment('${p.id}')">ENVIAR</button>
+                        </div>
+                        <div style="max-height:120px; overflow-y:auto;">${commentsHTML}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    `; 
+        `; 
+    });
+    
     openModal('modal-detail');
 }
 
-async function handleReaction(id, type) {
-    const ref = db.collection("productos").doc(id.toString());
-    const doc = await ref.get();
-    let reactions = doc.data().reactions || {};
-    if(reactions[myUserId] === type) delete reactions[myUserId]; else reactions[myUserId] = type;
-    await ref.update({ reactions });
+// C. Lógica del Editor Avanzado (Al final de tu archivo .js)
+function openBigEditor() {
+    document.getElementById('big-editor-area').value = document.getElementById('p-desc').value;
+    openModal('modal-big-editor');
 }
-
-async function addComment(id) {
-    const input = document.getElementById(`com-text-${id}`);
-    if(!input.value) return showToast("ESCRIBE ALGO");
-    await db.collection("productos").doc(id.toString()).update({
-        comments: firebase.firestore.FieldValue.arrayUnion({ userId: myUserId, text: input.value, timestamp: new Date().toISOString() })
-    });
-    input.value = ""; showToast("COMENTARIO ENVIADO");
+function saveBigEditor() {
+    document.getElementById('p-desc').value = document.getElementById('big-editor-area').value;
+    closeModal('modal-big-editor');
 }
 
 // ==========================================
