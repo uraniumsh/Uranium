@@ -722,4 +722,22 @@ input, select, textarea {
     .detail-img-container { width: 100%; height: 300px; }
 }
 
+/* Espaciado del foro y comentarios */
+.comments-section {
+    margin-top: 30px !important;
+    padding-top: 20px !important;
+    border-top: var(--border) !important;
+}
+
+/* Barra de comentarios más grande */
+input[id^="com-text-"] {
+    padding: 15px !important;
+    font-size: 14px !important;
+}
+
+/* Margen entre botones de pago y comentarios */
+.btn-nequi, .btn-wa {
+    margin-bottom: 20px !important;
+}
+
 .hidden { display: none !important; }
